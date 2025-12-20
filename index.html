@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Matemágica – Trilhas + Prática + Professor (Offline)</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">✨</div>
+      <div>
+        <div class="brand-title">Matemágica</div>
+        <div class="brand-sub">Trilhas • Prática • Evento semanal • Painel do professor</div>
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <button class="btn-secondary" id="mode-rapido" type="button">Modo Rápido</button>
+      <button class="btn-secondary" id="mode-estudo" type="button">Modo Estudo</button>
+      <button class="btn-secondary" id="toggle-night-mode" type="button" title="Alternar tema">🌙</button>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- HOME -->
+    <section id="home-screen" class="screen active">
+      <div class="panel">
+        <div class="panel-title">Perfil ativo</div>
+        <div id="active-profile-line" class="line">Nenhum perfil selecionado</div>
+        <div id="active-streak-line" class="line muted"></div>
+
+        <div class="row wrap" style="margin-top:12px;">
+          <button class="btn-primary" id="btn-manage-profiles" type="button">👤 Perfis</button>
+          <button class="btn-primary" id="btn-go-trails" type="button">🗺️ Trilhas</button>
+          <button class="btn-primary" id="btn-go-practice" type="button">🎯 Prática</button>
+          <button class="btn-primary" id="btn-go-obmep" type="button">🏆 Semanal</button>
+          <button class="btn-secondary" id="btn-go-teacher" type="button">🧑‍🏫 Professor</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="panel-title">Acessibilidade rápida</div>
+        <div class="row wrap">
+          <button class="btn-secondary" id="toggle-voice-read" type="button">🔊 Leitura</button>
+          <button class="btn-secondary" id="toggle-libras" type="button">🔔 Alerta</button>
+          <button class="btn-secondary" id="toggle-focus-mode" type="button">🧠 Foco</button>
+          <button class="btn-secondary" id="toggle-reading-easy" type="button">📖 Leitura fácil</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="row wrap">
+          <button class="btn-secondary" id="btn-settings" type="button">⚙️ Configurações</button>
+          <button class="btn-secondary" id="btn-shop" type="button">🛒 Loja (moedas)</button>
+          <button class="btn-secondary" id="btn-export-progress" type="button" title="Exporta um JSON para o professor importar">⬇️ Exportar progresso</button>
+        </div>
+
+        <div class="note">
+          <strong>Funciona offline:</strong> os dados ficam no <em>localStorage</em> do navegador.
+          Para o professor ver a turma, cada aluno exporta o arquivo e o professor importa no painel.
+        </div>
+      </div>
+    </section>
+
+    <!-- PERFIS -->
+    <section id="profiles-screen" class="screen">
+      <div class="bar">
+        <button class="btn-secondary" id="btn-back-home-from-profiles" type="button">← Voltar</button>
+        <div class="bar-title">Perfis</div>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-title">Lista</div>
+          <div id="profiles-list" class="stack"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Criar perfil</div>
+
+          <form id="profile-form" class="form">
+            <label>
+              <span>Nome do(a) estudante *</span>
+              <input id="pf-firstName" required maxlength="20" placeholder="Ex.: Ana" />
+            </label>
+
+            <label>
+              <span>Ano escolar *</span>
+              <select id="pf-gradeYear" required>
+                <option value="">Selecione</option>
+                <option value="1">1º ano</option>
+                <option value="2">2º ano</option>
+                <option value="3">3º ano</option>
+                <option value="4">4º ano</option>
+                <option value="5">5º ano</option>
+                <option value="6">6º ano</option>
+                <option value="7">7º ano</option>
+                <option value="8">8º ano</option>
+                <option value="9">9º ano</option>
+                <option value="10">1º EM</option>
+                <option value="11">2º EM</option>
+                <option value="12">3º EM</option>
+              </select>
+            </label>
+
+            <label>
+              <span>Turma *</span>
+              <input id="pf-classGroup" required maxlength="20" placeholder="Ex.: 731" />
+            </label>
+
+            <label>
+              <span>Escola *</span>
+              <input id="pf-schoolName" required maxlength="120" placeholder="Ex.: E.M. (nome da escola)" />
+            </label>
+
+            <fieldset class="fieldset">
+              <legend>Entrada do app (para diagnóstico)</legend>
+              <label class="radio">
+                <input type="radio" name="pf-startEntry" value="1" checked />
+                <span>Começar na base (1º ano)</span>
+              </label>
+              <label class="radio">
+                <input type="radio" name="pf-startEntry" value="6" />
+                <span>Entrar direto no 6º ano (faz diagnóstico)</span>
+              </label>
+            </fieldset>
+
+            <button class="btn-primary" type="submit">Criar e entrar</button>
+
+            <div class="hint muted">
+              Dica: para turmas com defasagem, escolha “Entrar no 6º ano” e deixe o diagnóstico decidir se precisa começar pela Base.
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- TRILHAS -->
+    <section id="trails-screen" class="screen">
+      <div class="bar">
+        <button class="btn-secondary" id="btn-back-home-from-trails" type="button">← Voltar</button>
+        <div class="bar-title">Trilhas</div>
+      </div>
+
+      <div class="panel">
+        <div class="row wrap between">
+          <div>
+            <div id="track-line" class="panel-title">—</div>
+            <div id="track-subline" class="muted">—</div>
+          </div>
+
+          <div class="row">
+            <label class="inline">
+              <span class="muted">Trilha:</span>
+              <select id="track-year-select"></select>
+            </label>
+            <button class="btn-secondary" id="btn-start-sr" type="button">🧠 Revisão SR</button>
+            <button class="btn-secondary" id="btn-open-errors" type="button">🧩 Erros</button>
+          </div>
+        </div>
+
+        <div id="map-list" class="stack" style="margin-top:12px;"></div>
+      </div>
+    </section>
+
+    <!-- ERROS -->
+    <section id="errors-screen" class="screen">
+      <div class="bar">
+        <button class="btn-secondary" id="btn-back-from-errors" type="button">← Voltar</button>
+        <div class="bar-title">Erros</div>
+      </div>
+
+      <div class="panel">
+        <div id="errors-summary" class="line">—</div>
+        <div class="row wrap" style="margin-top:12px;">
+          <button class="btn-primary" id="btn-train-errors" type="button">Treinar erros (5 itens)</button>
+          <button class="btn-secondary" id="btn-clear-errors" type="button">Limpar histórico</button>
+        </div>
+
+        <div class="note">
+          “Treino de erros” foca nos tipos/skills onde o aluno errou mais recentemente — bom para recuperar rápido antes do chefão.
+        </div>
+      </div>
+    </section>
+
+    <!-- PRÁTICA -->
+    <section id="practice-screen" class="screen">
+      <div class="bar">
+        <button class="btn-secondary" id="btn-back-home-from-practice" type="button">← Voltar</button>
+        <div class="bar-title">Prática</div>
+      </div>
+
+      <div class="panel">
+        <div class="grid-3">
+          <label>
+            <span>Tema</span>
+            <select id="practice-topic">
+              <option value="add">Adição</option>
+              <option value="sub">Subtração</option>
+              <option value="mul">Multiplicação</option>
+              <option value="div">Divisão</option>
+              <option value="decimals_compare">Comparar decimais</option>
+              <option value="fractions_equiv">Frações equivalentes</option>
+              <option value="percent_simple">Porcentagem (10/25/50)</option>
+              <option value="order_ops">Ordem das operações</option>
+              <option value="ob_patterns">OBMEP-like: padrões</option>
+              <option value="ob_parity">OBMEP-like: paridade</option>
+              <option value="ob_counting">OBMEP-like: contagem</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Dificuldade</span>
+            <select id="practice-difficulty">
+              <option value="easy">Fácil</option>
+              <option value="mid" selected>Médio</option>
+              <option value="hard">Difícil</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Quantidade</span>
+            <input id="practice-count" type="number" min="3" max="30" value="10" />
+          </label>
+        </div>
+
+        <div class="row wrap" style="margin-top:12px;">
+          <button class="btn-primary" id="btn-start-practice" type="button">Iniciar (com tempo)</button>
+          <button class="btn-secondary" id="btn-practice-no-timer" type="button">Iniciar (sem tempo)</button>
+        </div>
+
+        <div class="note">
+          Dica: no <strong>Modo Estudo</strong>, o app já prioriza sem tempo e reforça revisão.
+        </div>
+      </div>
+    </section>
+
+    <!-- SEMANAL -->
+    <section id="weekly-screen" class="screen">
+      <div class="bar">
+        <button class="btn-secondary" id="btn-back-home-from-weekly" type="button">← Voltar</button>
+        <div class="bar-title">Evento semanal</div>
+      </div>
+
+      <div class="panel">
+        <div class="row wrap between">
+          <div>
+            <div class="panel-title">Semana: <span id="weekly-weekkey">—</span></div>
+            <div id="weekly-theme" class="muted">—</div>
+          </div>
+          <div class="pill">Status: <strong id="weekly-status">—</strong></div>
+        </div>
+
+        <div class="row wrap" style="margin-top:12px;">
+          <button class="btn-primary" id="btn-weekly-warmup" type="button">Aquecimento (3)</button>
+          <button class="btn-primary" id="btn-weekly-boss" type="button">Chefão semanal (8)</button>
+        </div>
+
+        <div class="note">
+          O tema muda automaticamente por semana (padrões / paridade / contagem). Não usa questões oficiais: é “estilo OBMEP”.
+        </div>
+      </div>
+    </section>
+
+    <!-- SESSÃO -->
+    <section id="session-screen" class="screen">
+      <div class="bar">
+        <button class="btn-secondary" id="btn-exit-session" type="button">✕ Sair</button>
+        <div class="bar-title">
+          <span id="session-tag">Sessão</span>
+          <span class="muted">•</span>
+          <span id="session-timer-pill" class="muted">⏱️</span>
+        </div>
+        <div class="hud">
+          <span>XP: <strong id="hud-xp">0</strong></span>
+          <span>🪙: <strong id="hud-coins">0</strong></span>
+          <span>Q: <strong id="hud-q">0/0</strong></span>
+        </div>
+      </div>
+
+      <div class="panel session">
+        <div class="timebar"><div id="time-bar" class="timebar-fill"></div></div>
+
+        <div id="libras-alert" class="libras-alert hidden" aria-live="polite">⏳ Atenção: tempo acabando</div>
+
+        <div id="question-text" class="question">—</div>
+
+        <div class="row wrap" style="margin-top:10px;">
+          <button class="btn-secondary" id="btn-hint" type="button">💡 Dica</button>
+          <button class="btn-secondary" id="btn-toggle-timer" type="button">⏱️ Tempo: ON</button>
+          <button class="btn-secondary" id="btn-tts" type="button">🔊 Ler</button>
+        </div>
+
+        <div id="hint-area" class="hint-box hidden"></div>
+
+        <div id="answer-options" class="options"></div>
+      </div>
+
+      <audio id="alert-sound" preload="auto" src="data:audio/wav;base64,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"></audio>
+    </section>
+
+    <!-- RESULTADO -->
+    <section id="result-screen" class="screen">
+      <div class="bar">
+        <button class="btn-secondary" id="btn-back-home-from-result" type="button">← Home</button>
+        <div class="bar-title">Resultado</div>
+      </div>
+
+      <div class="panel">
+        <div id="result-title" class="result-title">—</div>
+        <div id="result-stats" class="result-stats"></div>
+        <div id="result-next" class="note" style="margin-top:10px;"></div>
+
+        <div class="row wrap" style="margin-top:12px;">
+          <button class="btn-primary" id="btn-result-continue" type="button">Continuar</button>
+          <button class="btn-secondary" id="btn-result-retry" type="button">Tentar de novo</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- LOJA -->
+    <section id="shop-screen" class="screen">
+      <div class="bar">
+        <button class="btn-secondary" id="btn-back-home-from-shop" type="button">← Voltar</button>
+        <div class="bar-title">Loja</div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Bloqueio de ofensiva</div>
+        <div class="line">Preço: <strong><span id="freeze-price">150</span> moedas</strong></div>
+        <div class="row wrap" style="margin-top:12px;">
+          <button class="btn-primary" id="btn-buy-freeze" type="button">Comprar 🧊</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="panel-title">Pacote Inclusão (gratuito)</div>
+        <div class="muted">Ativa: sem tempo + leitura fácil + foco + menos animação.</div>
+        <div class="row wrap" style="margin-top:12px;">
+          <button class="btn-secondary" id="btn-enable-inclusion-pack" type="button">Ativar pacote</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONFIGURAÇÕES -->
+    <section id="settings-screen" class="screen">
+      <div class="bar">
+        <button class="btn-secondary" id="btn-back-home-from-settings" type="button">← Voltar</button>
+        <div class="bar-title">Configurações</div>
+      </div>
+
+      <div class="panel">
+        <div class="grid-2">
+          <label class="check">
+            <input id="set-no-timer" type="checkbox" />
+            <span>Sem tempo (padrão)</span>
+          </label>
+
+          <label class="check">
+            <input id="set-reading-easy" type="checkbox" />
+            <span>Leitura fácil</span>
+          </label>
+
+          <label class="check">
+            <input id="set-focus-mode" type="checkbox" />
+            <span>Modo foco (menos questões)</span>
+          </label>
+
+          <label class="check">
+            <input id="set-reduce-motion" type="checkbox" />
+            <span>Reduzir animações</span>
+          </label>
+
+          <label class="check">
+            <input id="set-voice" type="checkbox" />
+            <span>Leitura por voz automática</span>
+          </label>
+
+          <label class="check">
+            <input id="set-libras" type="checkbox" />
+            <span>Alerta sonoro/visual</span>
+          </label>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="row wrap">
+          <button class="btn-secondary" id="btn-reset-profile-progress" type="button">Zerar progresso do perfil</button>
+          <button class="btn-secondary danger" id="btn-delete-profile" type="button">Excluir perfil</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- DIAGNÓSTICO (ENTRADA 6º) -->
+    <section id="diagnostic-screen" class="screen">
+      <div class="bar">
+        <button class="btn-secondary" id="btn-cancel-diagnostic" type="button">← Voltar</button>
+        <div class="bar-title">Diagnóstico</div>
+        <div class="pill">Progresso: <strong id="diagnostic-progress">—</strong></div>
+      </div>
+
+      <div class="panel">
+        <div class="note">
+          Responda 12 itens rápidos. O diagnóstico decide se vale começar no 6º ano ou reforçar a base por alguns dias.
+        </div>
+
+        <div id="diagnostic-question" class="question">—</div>
+        <div id="diagnostic-options" class="options" style="margin-top:10px;"></div>
+      </div>
+    </section>
+
+    <!-- PAINEL DO PROFESSOR -->
+    <section id="teacher-screen" class="screen">
+      <div class="bar">
+        <button class="btn-secondary" id="btn-back-home-from-teacher" type="button">← Voltar</button>
+        <div class="bar-title">Painel do professor</div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Importar arquivos de alunos</div>
+        <div class="row wrap between">
+          <input id="teacher-import" type="file" accept="application/json,.json" multiple />
+          <div class="row wrap">
+            <label class="inline">
+              <span class="muted">Escola:</span>
+              <select id="teacher-school-select"></select>
+            </label>
+            <label class="inline">
+              <span class="muted">Turma:</span>
+              <select id="teacher-class-select"></select>
+            </label>
+          </div>
+        </div>
+
+        <div class="row wrap" style="margin-top:12px;">
+          <button class="btn-primary" id="btn-teacher-export-csv" type="button">⬇️ Exportar CSV</button>
+          <button class="btn-secondary" id="btn-teacher-report" type="button">📝 Gerar relatório (texto)</button>
+          <button class="btn-secondary danger" id="btn-teacher-clear" type="button">Limpar painel</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div id="teacher-table-wrap"></div>
+
+        <div id="teacher-report-wrap" class="panel hidden" style="margin-top:12px;">
+          <div class="panel-title">Relatório (copiar/baixar)</div>
+          <textarea id="teacher-report-text" rows="18" spellcheck="false"></textarea>
+          <div class="row wrap" style="margin-top:10px;">
+            <button class="btn-secondary" id="btn-report-copy" type="button">Copiar</button>
+            <button class="btn-secondary" id="btn-report-download" type="button">Baixar .txt</button>
+          </div>
+        </div>
+
+        <div class="note">
+          <strong>Como funciona:</strong> cada aluno exporta o progresso (Home → “Exportar progresso”). O professor importa aqui, filtra por escola/turma e pode exportar CSV ou relatório.
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <div id="toast" class="toast hidden" aria-live="polite"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
