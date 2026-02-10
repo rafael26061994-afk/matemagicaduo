@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matemágica - Jogo da Matemática</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.webmanifest">
+</head>
+<body class="light-mode">
+
+    <span id="libras-alert" class="libras-alert hidden"></span>
+
+    <div id="confetti-container"></div>
+    <div id="feedback-message" class="feedback-message hidden"></div>
+
+    <div class="container">
+        
+        
+        <div id="home-screen" class="screen active">
+            <header class="home-header">
+                <img src="Sem titulo.png" alt="Logo do Projeto" id="main-logo">
+            </header>
+
+            <section class="info-card hero-card" aria-label="Continuar campanha">
+                <div class="hero-row">
+                    <div class="hero-text">
+                        <h2 class="hero-title">Continuar campanha</h2>
+                        <p id="home-campaign-sub" class="hero-sub">Escolha uma campanha para começar.</p>
+                    </div>
+                    <button id="btn-continue-campaign" class="main-btn cta-btn" type="button">▶ Continuar</button>
+                </div>
+
+                <div class="daily-goal">
+                    <div class="daily-row">
+                        <span id="daily-progress-text" class="daily-text">Meta do dia: 0/10</span>
+                        <span id="streak-text" class="pill">Sequência: 0</span>
+                    </div>
+                    <div class="bar" aria-hidden="true">
+                        <div id="daily-progress-bar" class="bar-fill" style="width:0%"></div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="quick-actions" aria-label="Atalhos">
+                <button id="btn-open-campaign" class="quick-btn" type="button">🗺️ Campanha</button>
+                <button id="btn-open-review" class="quick-btn" type="button">🧠 Revisão do dia</button>
+                <button id="btn-minigame-day" class="quick-btn" type="button">⚡ Minigame 3 min</button>
+            </div>
+
+            <section class="info-card missions-card" aria-label="Missões de 5 minutos">
+                <div class="missions-head">
+                    <h3 class="missions-title">Missões de 5 minutos</h3>
+                    <span id="missions-status" class="pill">Hoje: 0/1</span>
+                </div>
+                <p class="muted">Constância vence força bruta. Escolha <strong>1 missão por dia</strong> (5 min) para manter a sequência.</p>
+                <div class="missions-grid">
+                    <button id="mission-review" class="mission-btn" type="button">🧠 Revisão inteligente (5 min)</button>
+                    <button id="mission-forge" class="mission-btn" type="button">🔥 Forja do dia (5 min)</button>
+                    <button id="mission-combo" class="mission-btn" type="button">⚔️ Combo tático (5 min)</button>
+                </div>
+                <p class="tiny muted" id="missions-tip">Base: mesma operação (sem confusão). Reforço: mistura estratégica (pesos).</p>
+            </section>
+
+            <section class="info-card campaign-picker" aria-label="Escolha de campanha">
+                <div class="tabs" role="tablist" aria-label="Campanhas">
+                    <button id="campaign-pick-base" class="tab-btn active" type="button" role="tab" aria-selected="true">Base (6º–7º)</button>
+                    <button id="campaign-pick-reforco" class="tab-btn" type="button" role="tab" aria-selected="false">Reforço (8º–9º)</button>
+                </div>
+                <p class="muted">Lições curtas, progresso claro e revisão inteligente.</p>
+            </section>
+
+            <section class="section">
+                <div class="section-head">
+                    <h3 class="section-title">Modo livre</h3>
+                    <p class="section-sub">Escolha uma operação e treine no seu ritmo.</p>
+                </div>
+
+                <div class="operation-grid">
+                    <button class="operation-card" data-operation="addition" type="button"><h3>Adição (+)</h3></button>
+                    <button class="operation-card" data-operation="subtraction" type="button"><h3>Subtração (-)</h3></button>
+                    <button class="operation-card" data-operation="multiplication" type="button"><h3>Multiplicação (x)</h3></button>
+                    <button class="operation-card" data-operation="division" type="button"><h3>Divisão (÷)</h3></button>
+                    <button class="operation-card" data-operation="potenciacao" type="button"><h3>Potenciação (aⁿ)</h3></button>
+                    <button class="operation-card" data-operation="radiciacao" type="button"><h3>Radiciação (√)</h3></button>
+                </div>
+            </section>
+
+            <section class="section">
+                <div class="section-head">
+                    <h3 class="section-title">Ferramentas</h3>
+                    <p class="section-sub">Resultados e acompanhamento sem complicação.</p>
+                </div>
+
+                <button id="btn-show-ranking" class="main-btn" type="button">🏆 Ver Recordes</button>
+                <a class="main-btn link-btn" href="relatorio.html">📄 Relatório do estudante</a>
+                <a class="main-btn link-btn" href="professor.html">👩‍🏫 Painel do professor</a>
+            </section>
+
+            <details class="about-details">
+                <summary>Sobre o PET</summary>
+                <div class="info-card about-card">
+                    <h2 class="centered-title">PET — Programa de Estudo da Tabuada</h2>
+
+<p><strong>Aprender matemática com jogos, tecnologia e inclusão de verdade.</strong></p>
+
+<p>
+    O Projeto PET nasceu em um encontro pedagógico da rede municipal de Contagem/MG, a partir de uma constatação simples:
+    muitos estudantes até “decoram”, mas não dominam a tabuada (e outros conteúdos) com segurança.
+    O que começou como uma ideia leve evoluiu para uma proposta sólida, criada para engajar, dar autonomia e respeitar o ritmo de cada estudante.
+</p>
+
+<p>
+    Idealizado pelos professores <strong>Rafael Oliveira</strong> e <strong>Ronaldo Soares</strong>, o PET une competências complementares:
+</p>
+
+<p><strong>Rafael Oliveira</strong> — foco em autonomia, IA aplicada à educação e acessibilidade</p>
+<p><strong>Ronaldo Soares</strong> — criatividade, sensibilidade pedagógica e abordagem lúdica</p>
+
+<h3>Objetivo do PET</h3>
+<p>
+    Estimular o aprendizado de conteúdos de Matemática por meio de jogos, tornando o estudo mais participativo, consistente e motivador — sem infantilizar.
+</p>
+
+<h3>Inclusão no centro (não como detalhe)</h3>
+<p>
+    No PET, inclusão não é “tema”: é pilar. A vivência pessoal de Rafael com a monoparesia orienta escolhas concretas para que o aprendizado seja mais acessível,
+    mais humano e mais democrático — com tecnologia usada como ponte, não como barreira.
+</p>
+
+<h3>Onde acontece</h3>
+<p>
+    <strong>Escola Municipal Vereador José Ferreira de Aguiar</strong><br>
+    Bairro Icaivera — Contagem/MG
+</p>
+
+<div class="objectives">
+    <h3>Nossos eixos</h3>
+    <ul>
+        <li>Matemática em Jogo: aprendizagem ativa, lúdica e envolvente</li>
+        <li>Raciocínio Lógico: pensamento estratégico e resolução de problemas</li>
+        <li>Inclusão Radical: valorização das singularidades de cada estudante</li>
+        <li>Tecnologia Ética: IA como suporte ao desenvolvimento humano, com responsabilidade</li>
+    </ul>
+                </div>
+            </details>
+
+            <section class="section">
+                <div class="section-head">
+                    <h3 class="section-title">Configurações</h3>
+                    <p class="section-sub">Ajuste o app ao seu jeito.</p>
+                </div>
+
+                <div class="ui-prefs">
+                    <button id="btn-text-smaller" class="setting-btn" type="button"><span class="icon">A-</span> Texto</button>
+                    <button id="btn-text-bigger" class="setting-btn" type="button"><span class="icon">A+</span> Texto</button>
+                    <button id="toggle-high-contrast" class="setting-btn" type="button"><span class="icon">◐</span> Alto Contraste</button>
+                    <button id="toggle-reduce-motion" class="setting-btn" type="button"><span class="icon">⏸</span> Reduzir Movimento</button>
+                    <button id="toggle-layout-mode" class="setting-btn" type="button"><span class="icon">📱</span> Layout: Auto</button>
+                    <button id="toggle-mentors" class="setting-btn" type="button"><span class="icon">💬</span> Mentores</button>
+                </div>
+
+                <div class="settings-bar">
+                <button id="toggle-night-mode" class="setting-btn">
+                    <span class="icon">🌙</span> Modo Noite
+                </button>
+                <div class="modes-toggle">
+                    Modo:
+                    <button id="mode-rapido" class="mode-btn active">Rápido</button>
+                    <button id="mode-estudo" class="mode-btn">Estudo</button>
+                </div>
+            </div>
+
+            <div class="accessibility-bar">
+                <span class="access-title">Acessibilidade:</span>
+                <button id="toggle-voice-read" class="setting-btn toggle-access">
+                    <span class="icon">🔊</span> Leitura de Voz
+                </button>
+                <button id="toggle-libras" class="setting-btn toggle-access">
+                    <span class="icon">🤟</span> Modo Libras
+                </button>
+            </div>
+            </section>
+
+            <section class="section mentors-section">
+                <div class="section-head">
+                    <h3 class="section-title">Mentores</h3>
+                    <p class="section-sub">Falas curtas (opcionais) para guiar o treino.</p>
+                </div>
+
+                <div id="creators-section">
+                <h3>Criado por:</h3>
+                <div class="creators-grid">
+                    <div class="creator-card">
+                        <img src="ronaldo.png" alt="Avatar de Ronaldo" class="avatar"> 
+                        <p>Prof.: Ronaldo Soares</p>
+                    </div>
+                    <div class="creator-card">
+                        <img src="rafael.png" alt="Avatar de Rafael" class="avatar">
+                        <p>Prof.: Rafael Oliveira</p>
+                    </div>
+                </div>
+            </div>
+            </section>
+        </div>
+
+        <div id="campaign-screen" class="screen">
+            <header class="game-header">
+                <button class="btn-secondary btn-voltar-home" type="button">Voltar</button>
+                <h1 id="campaign-title">Campanha</h1>
+            </header>
+
+            <div class="info-card campaign-top">
+                <div class="tabs" role="tablist" aria-label="Campanhas">
+                    <button id="campaign-tab-base" class="tab-btn active" type="button" role="tab" aria-selected="true">Base (6º–7º)</button>
+                    <button id="campaign-tab-reforco" class="tab-btn" type="button" role="tab" aria-selected="false">Reforço (8º–9º)</button>
+                </div>
+                <p id="campaign-desc" class="muted">Plano: lições curtas, foco e revisão.</p>
+            </div>
+
+            <div id="campaign-map" class="campaign-map" aria-label="Mapa da campanha"></div>
+        </div>
+
+
+        <div id="level-selection-screen" class="screen">
+            <header class="game-header">
+                <button class="btn-secondary btn-voltar-home">Mudar Operação</button>
+                <h1>Configuração e Nível</h1>
+            </header>
+
+            <div class="info-card">
+                <h2>Selecione a Dificuldade</h2>
+                <p>O nível de dificuldade define a complexidade das questões e, no Modo Rápido, o tempo limite, que é dobrado caso a Acessibilidade (Voz ou Libras) esteja ativa, conforme a regra do jogo.</p>
+            </div>
+
+            <div class="level-selection">
+                <button class="level-btn" data-level="easy">
+                    <h3>Fácil (👶)</h3>
+                    <p>Ideal para iniciantes. Números e tabuadas menores (Tempo Base: 15s).</p>
+                </button>
+                <button class="level-btn" data-level="medium">
+                    <h3>Médio (🧠)</h3>
+                    <p>Desafio moderado. Tabuadas médias, potências e raízes simples (Tempo Base: 30s).</p>
+                </button>
+                <button class="level-btn" data-level="advanced">
+                    <h3>Avançado (🚀)</h3>
+                    <p>Para mestres. Potências e raízes complexas, tabuadas e números altos (Tempo Base: 45s).</p>
+                </button>
+            </div>
+
+            <p style="text-align: center; margin-top: 20px; font-weight: 600; color: var(--cor-secundaria);">
+                O Modo de Jogo (Rápido/Estudo) e Acessibilidade já foram definidos. Clique em um nível para iniciar o desafio!
+            </p>
+        </div>
+
+
+        <div id="game-screen" class="screen">
+            <header class="game-header">
+                <button class="btn-secondary btn-quit-game">SAIR</button>
+                <div class="score-info">
+                    <span id="player-score">0 Pontos</span>
+                    <span id="player-xp">XP: 0</span>
+                </div>
+            </header>
+            <div id="mentor-float" class="mentor-float" aria-label="Mentor">
+                <img id="mentor-avatar" src="ronaldo.png" alt="Mentor" class="mentor-avatar">
+                <div id="mentor-bubble" class="mentor-bubble hidden" role="status" aria-live="polite"></div>
+            </div>
+
+
+            <div id="timer-container" class="time-container">
+                <div id="time-bar" style="width: 100%; background-color: var(--cor-sucesso);"></div>
+            </div>
+
+            <div class="question-area info-card">
+                <p id="question-counter">Questão: 1/20</p>
+                <h1 id="question-text">5 + 5 = ?</h1>
+            </div>
+
+            <div class="game-tools" aria-label="Ferramentas">
+                <button id="btn-hint" type="button" class="tool-btn">🧩 Dica</button>
+                <button id="btn-toggle-input" type="button" class="tool-btn">⌨️ Digitar</button>
+            </div>
+
+            <div id="hint-panel" class="hint-panel hidden" role="region" aria-label="Dicas">
+                <div class="hint-head">
+                    <span id="hint-title" class="hint-title">Tática</span>
+                    <button id="btn-close-hint" type="button" class="hint-close" aria-label="Fechar">✕</button>
+                </div>
+                <div id="hint-body" class="hint-body"></div>
+                <button id="btn-next-hint" type="button" class="btn-primary hint-next">Próxima dica</button>
+            </div>
+
+            <div id="typed-area" class="typed-area hidden" aria-label="Resposta digitada">
+                <input id="typed-input" inputmode="numeric" pattern="[0-9]*" class="typed-input" placeholder="Digite a resposta">
+                <div id="typed-keypad" class="typed-keypad" aria-label="Teclado numérico">
+                    <button type="button" class="kp" data-k="7">7</button>
+                    <button type="button" class="kp" data-k="8">8</button>
+                    <button type="button" class="kp" data-k="9">9</button>
+                    <button type="button" class="kp kp-fn" data-k="bs">⌫</button>
+                    <button type="button" class="kp" data-k="4">4</button>
+                    <button type="button" class="kp" data-k="5">5</button>
+                    <button type="button" class="kp" data-k="6">6</button>
+                    <button type="button" class="kp kp-fn" data-k="clr">Limpar</button>
+                    <button type="button" class="kp" data-k="1">1</button>
+                    <button type="button" class="kp" data-k="2">2</button>
+                    <button type="button" class="kp" data-k="3">3</button>
+                    <button type="button" class="kp kp-ok" data-k="ok">OK</button>
+                    <button type="button" class="kp kp-zero" data-k="0">0</button>
+                </div>
+                <button id="btn-submit-typed" type="button" class="btn-primary typed-submit">Responder</button>
+            </div>
+
+            <div id="microcheck-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Checkpoint rápido">
+                <div class="modal-card">
+                    <h3 class="modal-title">Checkpoint rápido</h3>
+                    <p id="microcheck-question" class="modal-text">Pergunta</p>
+                    <div class="modal-actions">
+                        <button id="microcheck-btn-a" type="button" class="btn-secondary">A</button>
+                        <button id="microcheck-btn-b" type="button" class="btn-primary">B</button>
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="options-grid answers-grid">
+                <button class="answer-option btn-answer">
+                    <span class="answer-text">1</span>
+                </button>
+                <button class="answer-option btn-answer">
+                    <span class="answer-text">2</span>
+                </button>
+                <button class="answer-option btn-answer">
+                    <span class="answer-text">3</span>
+                </button>
+                <button class="answer-option btn-answer">
+                    <span class="answer-text">4</span>
+                </button>
+            </div>
+
+            <div class="action-buttons game-actions">
+                <button class="btn-action" id="btn-extend-time" style="display: none;">
+                    ⏱️ Prorrogar Tempo (<span id="extend-time-cost">100</span> XP)
+                </button>
+                <button class="btn-action" id="btn-show-answer" style="display: none;">
+                    💡 Mostrar Resposta
+                </button>
+            </div>
+        </div>
+
+        <div id="result-screen" class="screen">
+            <header>
+                <h1>Resultado da Rodada</h1>
+            </header>
+            
+            <div class="info-card result-summary">
+                <h2 style="text-align: center;">Pontuação Final: <span id="final-score">0</span></h2>
+                <p id="study-suggestion" class="suggestion"></p>
+                
+                <div class="result-details">
+                    <div class="result-item">
+                        <span class="stat-label">Acertos:</span>
+                        <p id="total-hits" class="correct-answer">0</p>
+                    </div>
+                    <div class="result-item">
+                        <span class="stat-label">Erros:</span>
+                        <p id="total-misses" class="wrong-answer">0</p>
+                    </div>
+                </div>
+
+                <div class="xp-summary" style="text-align: center; margin-top: 15px;">
+                    <p>XP Ganhos na Rodada: <span id="xp-gained" class="correct-answer">+0</span></p>
+                    <p>XP Total: <span id="xp-total">0</span></p>
+                </div>
+            </div>
+
+            <div class="footer-options">
+                <button class="btn-primary btn-voltar-home" style="flex-grow: 1;">Novo Desafio</button>
+                <button class="btn-secondary" id="btn-treinar-erros" style="display: none;">Treinar Erros</button>
+            </div>
+        </div>
+        
+        <div id="ranking-screen" class="screen">
+            <header class="game-header">
+                <button class="btn-secondary btn-voltar-home">Voltar</button>
+                <h1>Ranking de Recordes</h1>
+            </header>
+
+            <div class="ranking-container">
+                <p id="no-records-message" class="incentive-message hidden">Nenhum recorde registrado ainda. Comece a jogar!</p>
+                <div id="ranking-list-container">
+                    </div>
+            </div>
+            <button class="btn-action btn-secondary" id="btn-clear-ranking">Limpar Ranking</button>
+        </div>
+
+        <div id="error-training-screen" class="screen">
+            <header class="game-header">
+                <button class="btn-secondary btn-voltar-home">Voltar</button>
+                <h1>Treinamento de Erros</h1>
+            </header>
+
+            <div class="info-card">
+                <p id="error-count-message">Carregando erros...</p>
+            </div>
+            
+            <button class="btn-primary" id="btn-start-training" disabled>Começar Treinamento</button>
+
+            <h2 style="margin-top: 30px; font-size: 1.2em;">Últimos Erros Salvos:</h2>
+            <div id="error-list-container">
+                </div>
+            
+            <button class="btn-action btn-secondary" id="btn-clear-errors" disabled>Limpar Erros Salvos</button>
+        </div>
+
+
+        </div>
+
+    <audio id="alert-sound" src="alert-sound.mp3" preload="auto"></audio> 
+
+    
+    <nav class="bottom-nav" aria-label="Navegação">
+        <button id="nav-home" class="nav-item active" type="button" aria-label="Home">
+            <span class="nav-ico">🏠</span><span class="nav-txt">Home</span>
+        </button>
+        <button id="nav-campaign" class="nav-item" type="button" aria-label="Campanha">
+            <span class="nav-ico">🗺️</span><span class="nav-txt">Campanha</span>
+        </button>
+        <button id="nav-review" class="nav-item" type="button" aria-label="Revisão">
+            <span class="nav-ico">🧠</span><span class="nav-txt">Revisão</span>
+        </button>
+        <button id="nav-profile" class="nav-item" type="button" aria-label="Perfil">
+            <span class="nav-ico">👤</span><span class="nav-txt">Perfil</span>
+        </button>
+    </nav>
+
+<div vw class="enabled">
+        <div vw-access-button class="active"></div>
+        <div vw-plugin-wrapper>
+            <div class="vw-plugin-top-wrapper"></div>
+        </div>
+    </div>
+<script src="script.js"></script>
+  <div id="vlibras-root"></div>
+  <script src="a11y.js"></script>
+</body>
+</html>
