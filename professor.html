@@ -41,7 +41,11 @@
           <button id="btn-scan" class="main-btn" type="button" style="font-size:1.15em;padding:18px 16px;border-radius:18px;">📷 Escanear QR</button>
           <button id="btn-paste" class="main-btn" type="button" style="font-size:1.05em;padding:16px 16px;border-radius:18px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.35);">⌨️ Colar código</button>
 
-          <div id="paste-wrap" style="display:none;margin-top:8px;">
+          
+
+          <button id="btn-import-weekly" class="main-btn" type="button" style="font-size:1.05em;padding:16px 16px;border-radius:18px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.35);">🏠→🏫 Importar resumo semanal (JSON)</button>
+          <input id="file-weekly" type="file" accept="application/json,.json" style="display:none;" />
+<div id="paste-wrap" style="display:none;margin-top:8px;">
             <label class="tiny muted">Cole aqui o código do relatório (MMR1)</label>
             <textarea id="inp-code" placeholder="Cole o código aqui..."></textarea>
             <div class="mm-row" style="margin-top:10px;">
@@ -139,7 +143,32 @@
           <tbody id="tbl-body"></tbody>
         </table>
       </div>
+    
+    <div class="info-card" style="margin-top:12px;">
+      <h3>Resumos semanais (Casa → Escola)</h3>
+      <div class="tiny muted" id="weekly-count-text">0 resumos.</div>
+      <div id="weekly-class-summary" class="info-card" style="margin-top:10px;">
+        <h3>Visão rápida (últimos 7 dias)</h3>
+        <p class="muted">Importe resumos semanais (JSON) para ver sinais de estudo em casa e dificuldades.</p>
+      </div>
+      <div style="overflow:auto;max-height:55vh;margin-top:10px;">
+        <table class="table" id="weekly-tbl">
+          <thead>
+            <tr>
+              <th>Aluno</th>
+              <th>Turma</th>
+              <th>Uso em casa</th>
+              <th>Desempenho</th>
+              <th>Top dificuldade</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="weekly-tbl-body"></tbody>
+        </table>
+      </div>
     </div>
+
+
   </div>
 
   <script src="professor.js"></script>

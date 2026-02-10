@@ -108,160 +108,19 @@ const gameState = {
     },
 
 
+    // Pools fixos (50 questões) para Adição/Subtração por nível
+    addSubPools: {
+        addition: { easy: [], medium: [], advanced: [] },
+        subtraction: { easy: [], medium: [], advanced: [] },
+        idx: { addition: { easy: 0, medium: 0, advanced: 0 }, subtraction: { easy: 0, medium: 0, advanced: 0 } },
+        size: 50
+    },
+
+
+
     acertos: 0,
     erros: 0
 };
-
-// v20 — Bancos fixos (50) para Adição/Subtração por nível (sem repetição até completar)
-const ADD_BANK_KEY = 'matemagica_add_bank_v1';
-const SUB_BANK_KEY = 'matemagica_sub_bank_v1';
-const ADD_IDX_KEY  = 'matemagica_add_idx_v1';
-const SUB_IDX_KEY  = 'matemagica_sub_idx_v1';
-
-function loadBank(key){
-  try{
-    const raw = localStorage.getItem(key);
-    const obj = raw ? JSON.parse(raw) : {};
-    return (obj && typeof obj === 'object') ? obj : {};
-  }catch(_){ return {}; }
-}
-function saveBank(key, obj){
-  try{ localStorage.setItem(key, JSON.stringify(obj||{})); }catch(_){}
-}
-function loadIdx(key){
-  try{
-    const raw = localStorage.getItem(key);
-    const obj = raw ? JSON.parse(raw) : {};
-    return (obj && typeof obj === 'object') ? obj : {};
-  }catch(_){ return {}; }
-}
-function saveIdx(key,obj){
-  try{ localStorage.setItem(key, JSON.stringify(obj||{})); }catch(_){}
-}
-
-function randInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
-
-function buildAddBank(level){
-  // metas: 50 operações, com mistura B (vai-um) principalmente no médio/difícil
-  const out=[];
-  const seen=new Set();
-  let tries=0;
-  const cfg = (level==='easy')
-    ? {aMax:12, bMax:12, sumMax:20, pCarry:0.25}
-    : (level==='medium')
-      ? {aMax:25, bMax:25, sumMax:50, pCarry:0.55}
-      : {aMax:60, bMax:60, sumMax:100, pCarry:0.65};
-
-  while(out.length<50 && tries<20000){
-    tries++;
-    let a=randInt(0,cfg.aMax);
-    let b=randInt(0,cfg.bMax);
-    let s=a+b;
-    if (s>cfg.sumMax) continue;
-
-    // força "padrão B" (vai-um) em parte dos itens (quando aplicável)
-    const wantCarry = Math.random() < cfg.pCarry;
-    if (wantCarry){
-      // tentar criar carry em unidades: (a%10 + b%10 >= 10)
-      const au = randInt(0,9);
-      const bu = randInt(10-au,9);
-      const at = randInt(0, Math.floor(cfg.aMax/10));
-      const bt = randInt(0, Math.floor(cfg.bMax/10));
-      a = at*10 + au;
-      b = bt*10 + bu;
-      s = a+b;
-      if (a>cfg.aMax || b>cfg.bMax || s>cfg.sumMax) continue;
-      if ((a%10 + b%10) < 10) continue;
-    }
-
-    const k=a+'+'+b;
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push({a,b,ans:s});
-  }
-  // fallback: completa sem restrição de carry
-  while(out.length<50){
-    let a=randInt(0,cfg.aMax);
-    let b=randInt(0,cfg.bMax);
-    let s=a+b;
-    if (s>cfg.sumMax) continue;
-    const k=a+'+'+b;
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push({a,b,ans:s});
-  }
-  return out;
-}
-
-function buildSubBank(level){
-  const out=[];
-  const seen=new Set();
-  let tries=0;
-  const cfg = (level==='easy')
-    ? {max:20, pBorrow:0.20}
-    : (level==='medium')
-      ? {max:50, pBorrow:0.55}
-      : {max:100, pBorrow:0.65};
-
-  while(out.length<50 && tries<20000){
-    tries++;
-    let a=randInt(0,cfg.max);
-    let b=randInt(0,cfg.max);
-    if (b>a) { const t=a; a=b; b=t; }
-    let d=a-b;
-
-    const wantBorrow = Math.random() < cfg.pBorrow;
-    if (wantBorrow){
-      // força empréstimo na casa das unidades: (a%10 < b%10)
-      const au = randInt(0,8);
-      const bu = randInt(au+1,9);
-      const at = randInt(0, Math.floor(cfg.max/10));
-      const bt = randInt(0, Math.floor(cfg.max/10));
-      a = at*10 + au;
-      b = bt*10 + bu;
-      if (b>a) { const t=a; a=b; b=t; }
-      d=a-b;
-      if ((a%10) >= (b%10)) continue;
-      if (a>cfg.max || b>cfg.max) continue;
-    }
-
-    const k=a+'-'+b;
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push({a,b,ans:d});
-  }
-  while(out.length<50){
-    let a=randInt(0,cfg.max);
-    let b=randInt(0,cfg.max);
-    if (b>a) { const t=a; a=b; b=t; }
-    const k=a+'-'+b;
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push({a,b,ans:a-b});
-  }
-  return out;
-}
-
-function getBankedQuestion(operation, level){
-  const bankKey = (operation==='addition') ? ADD_BANK_KEY : SUB_BANK_KEY;
-  const idxKey  = (operation==='addition') ? ADD_IDX_KEY : SUB_IDX_KEY;
-
-  const banks = loadBank(bankKey);
-  const idxs  = loadIdx(idxKey);
-
-  if (!banks[level] || !Array.isArray(banks[level]) || banks[level].length !== 50){
-    banks[level] = (operation==='addition') ? buildAddBank(level) : buildSubBank(level);
-    saveBank(bankKey, banks);
-  }
-  const bank = banks[level];
-
-  const cur = Number(idxs[level] || 0);
-  const q = bank[cur % bank.length];
-  idxs[level] = (cur + 1) % bank.length;
-  saveIdx(idxKey, idxs);
-
-  return q;
-}
 
 
 // --- FUNÇÕES UTILITY E ACESSIBILIDADE ---
@@ -435,11 +294,10 @@ function loadStudentProfile() {
         gameState.studentProfile = {
             name: String(obj?.name || '').trim(),
             turma: String(obj?.turma || '').trim(),
-            escola: String(obj?.escola || '').trim(),
-            ano: String(obj?.ano || '6').trim()
+            escola: String(obj?.escola || '').trim()
         };
     } catch (e) {
-        gameState.studentProfile = { name: '', turma: '', escola: '', ano: '6' };
+        gameState.studentProfile = { name: '', turma: '', escola: '' };
     }
     return gameState.studentProfile;
 }
@@ -448,8 +306,7 @@ function saveStudentProfile(profile) {
     const safe = {
         name: String(profile?.name || '').trim().slice(0, 50),
         turma: String(profile?.turma || '').trim().slice(0, 30),
-        escola: String(profile?.escola || '').trim().slice(0, 60),
-        ano: String(profile?.ano || '6').trim().replace(/[^0-9]/g,'').slice(0,1) || '6'
+        escola: String(profile?.escola || '').trim().slice(0, 60)
     };
     localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(safe));
     gameState.studentProfile = safe;
@@ -549,6 +406,12 @@ function ensureLearningMapUI() {
         if (header && header.parentNode) {
             header.parentNode.insertBefore(card, header.nextSibling);
         } else {
+        gameState.wrongStreak = (gameState.wrongStreak || 0) + 1;
+        if (gameState.wrongStreak >= 3) {
+            // v19.1 — anti-frustração: próxima(s) questão(ões) mais fáceis sem avisar
+            gameState.forceEasy = 2;
+            gameState.wrongStreak = 0;
+        }
             screen.appendChild(card);
         }
     }
@@ -646,14 +509,6 @@ function ensureProfileUI() {
           <input id="profile-name" class="tp-input" type="text" maxlength="50" placeholder="Ex.: Ana, João, Aluno 12">
           <label class="tp-label">Turma</label>
           <input id="profile-turma" class="tp-input" type="text" maxlength="30" placeholder="Ex.: 701, 8ºA">
-
-          <label class="tp-label">Ano (6º–9º)</label>
-          <select id="profile-ano" class="tp-input">
-            <option value="6">6º</option>
-            <option value="7">7º</option>
-            <option value="8">8º</option>
-            <option value="9">9º</option>
-          </select>
           <label class="tp-label">Escola</label>
           <input id="profile-escola" class="tp-input" type="text" maxlength="60" placeholder="Ex.: E.M. ...">
           <div class="teacher-row" style="margin-top: 12px;">
@@ -671,8 +526,6 @@ function ensureProfileUI() {
         overlay.querySelector('#profile-name').value = gameState.studentProfile?.name || '';
         overlay.querySelector('#profile-turma').value = gameState.studentProfile?.turma || '';
         overlay.querySelector('#profile-escola').value = gameState.studentProfile?.escola || '';
-        const anoEl = overlay.querySelector('#profile-ano');
-        if (anoEl) anoEl.value = String(gameState.studentProfile?.ano || '6');
     };
     const close = () => overlay.classList.add('hidden');
 
@@ -684,13 +537,8 @@ function ensureProfileUI() {
         saveStudentProfile({
             name: overlay.querySelector('#profile-name').value,
             turma: overlay.querySelector('#profile-turma').value,
-            escola: overlay.querySelector('#profile-escola').value,
-            ano: overlay.querySelector('#profile-ano') ? overlay.querySelector('#profile-ano').value : '6'
+            escola: overlay.querySelector('#profile-escola').value
         });
-        // v20: se o aluno é 8º/9º, marcar Reforço automaticamente
-        const ano = String(overlay.querySelector('#profile-ano') ? overlay.querySelector('#profile-ano').value : '6');
-        if (ano === '8' || ano === '9') setSelectedCampaignId('reforco');
-        else setSelectedCampaignId('base');
         showFeedbackMessage('Perfil salvo!', 'success', 1500);
         close();
     });
@@ -1221,32 +1069,34 @@ function buildQuestionFromError(err) {
     let questionStr = '';
     let voiceQ = '';
     switch (op) {
-        case 'addition': {
-            // v20 — 50 operações por nível (banco) + padrão B já incorporado
-            const lvl = (gameState.currentLevel === 'advanced') ? 'advanced' : (gameState.currentLevel === 'medium' ? 'medium' : 'easy');
-
-            // anti-frustração: se forceEasy ativo, rebaixa para easy temporariamente
-            const effLvl = (gameState.forceEasy > 0) ? 'easy' : lvl;
-
-            const q = getBankedQuestion('addition', effLvl);
-            num1 = q.a; num2 = q.b; answer = q.ans;
+case 'addition':
+            // v19.2 — usa pool fixo (50) por nível
+            const __pAdd = nextFromAddSubPool('addition', gameState.currentLevel);
+            if (__pAdd) {
+                num1 = __pAdd[0]; num2 = __pAdd[1];
+                answer = num1 + num2;
+                questionString = `${num1} + ${num2}`;
+                questionSpeak = `${num1} mais ${num2}`;
+                break;
+            }
 
             questionStr = `${num1} + ${num2} = ?`;
             voiceQ = `Qual é o resultado de ${num1} mais ${num2}?`;
             break;
-        }
-        case 'subtraction': {
-            // v20 — 50 operações por nível (banco) + padrão B (empréstimo) incorporado
-            const lvl = (gameState.currentLevel === 'advanced') ? 'advanced' : (gameState.currentLevel === 'medium' ? 'medium' : 'easy');
-            const effLvl = (gameState.forceEasy > 0) ? 'easy' : lvl;
-
-            const q = getBankedQuestion('subtraction', effLvl);
-            num1 = q.a; num2 = q.b; answer = q.ans;
+case 'subtraction':
+            // v19.2 — usa pool fixo (50) por nível
+            const __pSub = nextFromAddSubPool('subtraction', gameState.currentLevel);
+            if (__pSub) {
+                num1 = __pSub[0]; num2 = __pSub[1];
+                answer = num1 - num2;
+                questionString = `${num1} - ${num2}`;
+                questionSpeak = `${num1} menos ${num2}`;
+                break;
+            }
 
             questionStr = `${num1} − ${num2} = ?`;
             voiceQ = `Qual é o resultado de ${num1} menos ${num2}?`;
             break;
-        }
         case 'multiplication':
             questionStr = `${num1} × ${num2} = ?`;
             voiceQ = `Qual é o resultado de ${num1} vezes ${num2}?`;
@@ -1312,7 +1162,12 @@ function startErrorTraining() {
     gameState.acertos = 0;
     gameState.erros = 0;
     gameState.sessionStartTs = Date.now();
-    gameState.isGameActive = true;
+    
+    // v19.2 — pools fixos para Adição/Subtração
+    if (operation === 'addition' || operation === 'subtraction') {
+        ensureAddSubPool(operation, level);
+    }
+gameState.isGameActive = true;
     gameState.isTrainingErrors = false;
     gameState.attemptsThisQuestion = 0;
     if (btnShowAnswer) btnShowAnswer.disabled = false;
@@ -1812,6 +1667,126 @@ function openMultiplicationConfig(level) {
  * @param {string} operation - A operação matemática.
  * @returns {object} { question: string, answer: number, options: number[] }
  */
+
+/**
+ * v19.2 — Gera pools fixos (50) de Adição/Subtração por nível para reduzir repetição e dar previsibilidade.
+ * Mantém restrições mais leves para turma fraca (Base 6º–7º: easy/medium <= 20).
+ */
+function buildAddSubPool(operation, level, size = 50) {
+    const pairs = [];
+    const seen = new Set();
+
+    const isBaseSafe = (typeof isCampaignBase === 'function') && isCampaignBase() && (level === 'easy' || level === 'medium');
+    const maxBase = 20;
+
+    // Faixas por nível (modo livre e reforço)
+    const ranges = {
+        easy:   { min: 0,  max: isBaseSafe ? maxBase : 30 },
+        medium: { min: 0,  max: isBaseSafe ? maxBase : 120 },
+        advanced:{ min: 0, max: 500 }
+    };
+    const r = ranges[level] || ranges.medium;
+
+    let guard = 0;
+    while (pairs.length < size && guard < size * 80) {
+        guard++;
+
+        let a, b;
+        if (operation === 'addition') {
+            // easy: parte sem vai-um; medium: mistura; advanced: mais amplitude
+            if (level === 'easy') {
+                const au = randomInt(0, 9);
+                const bu = randomInt(0, 9-au); // sem vai-um
+                const at = randomInt(0, Math.floor(r.max / 10));
+                const bt = randomInt(0, Math.floor(r.max / 10));
+                a = at * 10 + au;
+                b = bt * 10 + bu;
+                if (isBaseSafe && (a + b) > maxBase) continue;
+            } else if (level === 'medium') {
+                // 55% com vai-um para consolidar
+                const wantCarry = Math.random() < 0.55;
+                if (wantCarry) {
+                    const au = randomInt(0, 9);
+                    const bu = randomInt(Math.max(10 - au, 0), 9);
+                    const at = randomInt(0, Math.floor(r.max / 10));
+                    const bt = randomInt(0, Math.floor(r.max / 10));
+                    a = at * 10 + au;
+                    b = bt * 10 + bu;
+                } else {
+                    a = randomInt(r.min, r.max);
+                    b = randomInt(r.min, r.max);
+                }
+                if (isBaseSafe && (a + b) > maxBase) continue;
+            } else {
+                a = randomInt(r.min, r.max);
+                b = randomInt(r.min, r.max);
+            }
+            const key = `${a}+${b}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            pairs.push([a, b]);
+        } else {
+            // subtraction: garante resultado >= 0
+            if (level === 'easy') {
+                a = randomInt(0, r.max);
+                b = randomInt(0, Math.min(a, r.max));
+            } else if (level === 'medium') {
+                const wantBorrow = Math.random() < 0.55;
+                if (wantBorrow) {
+                    // força empréstimo nas unidades: u1 < u2
+                    const u2 = randomInt(1, 9);
+                    const u1 = randomInt(0, u2 - 1);
+                    const t1 = randomInt(0, Math.floor(r.max / 10));
+                    const t2 = randomInt(0, Math.min(t1, Math.floor(r.max / 10)));
+                    a = t1 * 10 + u1;
+                    b = t2 * 10 + u2;
+                    if (a < b) { const tmp = a; a = b; b = tmp; }
+                } else {
+                    a = randomInt(r.min, r.max);
+                    b = randomInt(r.min, r.max);
+                    if (a < b) { const tmp = a; a = b; b = tmp; }
+                }
+            } else {
+                a = randomInt(r.min, r.max);
+                b = randomInt(r.min, r.max);
+                if (a < b) { const tmp = a; a = b; b = tmp; }
+            }
+            if (isBaseSafe && a > maxBase) { a = randomInt(0, maxBase); b = randomInt(0, a); }
+            const key = `${a}-${b}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            pairs.push([a, b]);
+        }
+    }
+
+    // fallback: se por algum motivo não completou, preenche repetindo
+    while (pairs.length < size && pairs.length > 0) pairs.push(pairs[pairs.length % pairs.length]);
+    return pairs;
+}
+
+function ensureAddSubPool(operation, level) {
+    if (!gameState.addSubPools) return;
+    const lvl = (level === 'easy' || level === 'medium' || level === 'advanced') ? level : 'medium';
+    const cur = gameState.addSubPools[operation] && gameState.addSubPools[operation][lvl];
+    const idx = gameState.addSubPools.idx && gameState.addSubPools.idx[operation] ? gameState.addSubPools.idx[operation][lvl] : 0;
+    if (!cur || cur.length !== gameState.addSubPools.size || idx >= cur.length) {
+        gameState.addSubPools[operation][lvl] = buildAddSubPool(operation, lvl, gameState.addSubPools.size);
+        gameState.addSubPools.idx[operation][lvl] = 0;
+    }
+}
+
+function nextFromAddSubPool(operation, level) {
+    if (!gameState.addSubPools) return null;
+    const lvl = (level === 'easy' || level === 'medium' || level === 'advanced') ? level : 'medium';
+    ensureAddSubPool(operation, lvl);
+    const arr = gameState.addSubPools[operation][lvl];
+    const i = gameState.addSubPools.idx[operation][lvl] || 0;
+    const pair = arr && arr[i] ? arr[i] : null;
+    gameState.addSubPools.idx[operation][lvl] = i + 1;
+    return pair;
+}
+
+
 function generateQuestion(operation) {
     let num1, num2, answer, questionString, questionSpeak;
     
@@ -2301,15 +2276,6 @@ function handleAnswer(selectedAnswer, selectedButton) {
 
     // ERRO
     gameState.attemptsThisQuestion++;
-
-    // v19.2 — streak de erros + anti-frustração (turma fraca)
-    gameState.wrongStreak = (gameState.wrongStreak || 0) + 1;
-    if (gameState.wrongStreak >= 3) {
-        // próximas 2 questões mais fáceis (sem aviso)
-        gameState.forceEasy = Math.max(gameState.forceEasy || 0, 2);
-        gameState.wrongStreak = 0;
-    }
-
 
     // Salva erro (mesmo que depois acerte, isso ajuda a mapear as dificuldades)
     gameState.erros++;
@@ -3016,20 +2982,6 @@ function getCampaignProgress(campaignId) {
     return st.progress[campaignId];
 }
 
-function hasAnyCampaignProgress(campaignId){
-    const st = loadCampaignState();
-    const p = st.progress?.[campaignId];
-    if (!p) return false;
-    const doneCount = p.done ? Object.keys(p.done).length : 0;
-    return (p.unit || 0) > 0 || (p.lesson || 0) > 0 || doneCount > 0;
-}
-function resetCampaignProgress(campaignId){
-    const st = loadCampaignState();
-    if (!st.progress) st.progress = {};
-    st.progress[campaignId] = { unit: 0, lesson: 0, done: {} };
-    saveCampaignState(st);
-}
-
 function setCampaignProgress(campaignId, prog) {
     const st = loadCampaignState();
     if (!st.progress) st.progress = {};
@@ -3057,6 +3009,16 @@ function updateHomeCampaignUI() {
     if (!sub || !btn) return;
 
     const cid = getSelectedCampaignId();
+    // v19.2 — refletir seleção também na Home (Base 6º–7º / Reforço 8º–9º)
+    const pickBase = document.getElementById('campaign-pick-base');
+    const pickRef = document.getElementById('campaign-pick-reforco');
+    if (pickBase && pickRef) {
+        pickBase.classList.toggle('active', cid === 'base');
+        pickRef.classList.toggle('active', cid === 'reforco');
+        pickBase.setAttribute('aria-selected', cid === 'base' ? 'true' : 'false');
+        pickRef.setAttribute('aria-selected', cid === 'reforco' ? 'true' : 'false');
+    }
+
     const cur = getCurrentLesson(cid);
     if (!cur) {
         sub.textContent = 'Escolha uma campanha para começar.';
@@ -3354,32 +3316,25 @@ function initRedesignUI() {
     if (btnContinue) {
         btnContinue.addEventListener('click', () => {
             const cid = getSelectedCampaignId();
-            const cur = getCurrentLesson(cid);
-            if (!cur) { exibirTela('campaign-screen'); return; }
+            const st = loadCampaignState();
+            const prog = st && st.progress && st.progress[cid] ? st.progress[cid] : null;
+            const hasProgress = !!(prog && (prog.unit > 0 || prog.lesson > 0 || (prog.done && Object.keys(prog.done).length > 0)));
+            if (hasProgress) {
+                const okContinue = window.confirm('Continuar de onde parou?
 
-            // v20: oferecer opção "Novo jogo" quando já existe progresso
-            const modal = document.getElementById('resume-modal');
-            const has = hasAnyCampaignProgress(cid);
-            if (modal && has){
-                modal.classList.remove('hidden');
-                const btnResume = document.getElementById('btn-resume-campaign');
-                const btnNew = document.getElementById('btn-new-campaign');
-                const btnClose = document.getElementById('btn-close-resume');
-
-                const close = ()=>{ modal.classList.add('hidden'); };
-
-                if (btnResume) btnResume.onclick = ()=>{ close(); startCampaignLesson(cid, cur.unitIndex, cur.lessonIndex); };
-                if (btnNew) btnNew.onclick = ()=>{ resetCampaignProgress(cid); close(); renderCampaignScreen(); updateHomeCampaignUI(); startCampaignLesson(cid, 0, 0); };
-                if (btnClose) btnClose.onclick = close;
-
-                // Esc fecha
-                const onKey = (e)=>{ if (e.key === 'Escape'){ close(); document.removeEventListener('keydown', onKey); } };
-                document.addEventListener('keydown', onKey);
-
-                return;
+OK = Continuar
+Cancelar = Começar novo jogo');
+                if (!okContinue) {
+                    // novo jogo: zera progresso da campanha selecionada
+                    if (!st.progress) st.progress = {};
+                    st.progress[cid] = { unit: 0, lesson: 0, done: {} };
+                    saveCampaignState(st);
+                    renderCampaignScreen();
+                }
             }
-
-            startCampaignLesson(cid, cur.unitIndex, cur.lessonIndex);
+            const cur = getCurrentLesson(cid);
+            if (cur) startCampaignLesson(cid, cur.unitIndex, cur.lessonIndex);
+            else exibirTela('campaign-screen');
         });
     }
     if (btnOpenCampaign) btnOpenCampaign.addEventListener('click', () => { renderCampaignScreen(); exibirTela('campaign-screen'); });
@@ -3532,7 +3487,7 @@ attachEventListeners();
   // Extensões de estado (sem quebrar versões antigas)
   gameState.v17 = gameState.v17 || {
     hintLevel: 0,
-    answerMode: 'mcq', // v20: somente múltipla escolha (sem digitar)
+    answerMode: 'mcq', // 'mcq' | 'typed'
     forcedTypedCountdown: 0,
     wrongFastStreak: 0,
     questionStartTs: 0,
@@ -3762,16 +3717,24 @@ attachEventListeners();
   }
 
   function setAnswerMode(mode){
-    // v20: resposta sempre por múltipla escolha (sem digitar)
-    gameState.v17.answerMode = 'mcq';
-    if (typedArea) typedArea.classList.add('hidden');
-    if (btnToggleInput) btnToggleInput.classList.add('hidden');
-    document.querySelectorAll('.answer-option').forEach(b=>{ b.disabled = false; });
-}
-function maybeSetModeForQuestion(){
-    // v20: mantém mcq sempre
+    gameState.v17.answerMode = mode;
+    if (mode === 'typed'){
+      if (typedArea) typedArea.classList.remove('hidden');
+      if (btnToggleInput) btnToggleInput.textContent = '🔢 Opções';
+      // desabilita botões de alternativa
+      document.querySelectorAll('.answer-option').forEach(b=>{ b.disabled = true; });
+      if (typedInput) { typedInput.value=''; typedInput.focus(); }
+    } else {
+      if (typedArea) typedArea.classList.add('hidden');
+      if (btnToggleInput) btnToggleInput.textContent = '⌨️ Digitar';
+      document.querySelectorAll('.answer-option').forEach(b=>{ b.disabled = false; });
+    }
+  }
+
+  function maybeSetModeForQuestion(){
+    // v19.2 — Removido modo de digitar: sempre múltipla escolha
     setAnswerMode('mcq');
-}
+  }
 
   function microcheckSpec(tag){
     // retorna {q, a, b, correct:'a'|'b'}

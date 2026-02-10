@@ -27,6 +27,7 @@
     btnCopy: document.getElementById('btn-copy-code'),
     btnJson: document.getElementById('btn-download-json'),
     btnCsv: document.getElementById('btn-download-csv'),
+    btnWeekly: document.getElementById('btn-download-weekly'),
   };
 
   function safeParse(raw, fallback){
@@ -310,7 +311,105 @@ const topMistakes = summarizeTop(errors, (e)=>{
     new QRCode(els.qr, { text: code, width: 256, height: 256, correctLevel: QRCode.CorrectLevel.M });
   }
 
-  function init(){
+  
+  // --- Resumo semanal (Casa → Escola) ---
+  function safeJson(raw, fallback){
+    try{ 
+      const v = raw ? JSON.parse(raw) : fallback;
+      return (v === undefined || v === null) ? fallback : v;
+    }catch(_){ 
+      return fallback; 
+    }
+  }
+
+  function buildWeeklySummary(days=7){
+    const now = Date.now();
+    const since = now - days*24*60*60*1000;
+
+    const profile = safeJson(localStorage.getItem(PROFILE_KEY), null);
+    const sessions = safeJson(localStorage.getItem(SESSIONS_KEY), []);
+    const errors = safeJson(localStorage.getItem(ERRORS_KEY), []);
+
+    const weekSessions = Array.isArray(sessions) ? sessions.filter(s => (s && Number(s.ts) >= since)) : [];
+    const weekErrors = Array.isArray(errors) ? errors.filter(e => (e && Number(e.ts) >= since)) : [];
+
+    const daySet = new Set();
+    let totalSec = 0, totalCorrect = 0, totalWrong = 0, totalQ = 0;
+
+    const byOp = {};
+    weekSessions.forEach(s=>{
+      const ts = Number(s.ts)||0;
+      const d = new Date(ts);
+      if(!isNaN(d)) daySet.add(d.toISOString().slice(0,10));
+
+      totalSec += Number(s.durationSec)||0;
+      totalCorrect += Number(s.correct)||0;
+      totalWrong += Number(s.wrong)||0;
+      totalQ += Number(s.questions)||0;
+
+      const op = String(s.operation||'');
+      if(!byOp[op]) byOp[op] = {sessions:0, questions:0, correct:0, wrong:0, accuracy:null, avgSecPerQ:null};
+      byOp[op].sessions += 1;
+      byOp[op].questions += Number(s.questions)||0;
+      byOp[op].correct += Number(s.correct)||0;
+      byOp[op].wrong += Number(s.wrong)||0;
+    });
+
+    Object.keys(byOp).forEach(op=>{
+      const q = byOp[op].questions || 0;
+      const sec = weekSessions.filter(s=>String(s.operation||'')===op).reduce((a,s)=>a+(Number(s.durationSec)||0),0);
+      byOp[op].avgSecPerQ = q>0 ? Math.round((sec/q)*10)/10 : null;
+      byOp[op].accuracy = q>0 ? Math.round((byOp[op].correct/q)*1000)/10 : null;
+    });
+
+    const tagCount = {};
+    weekErrors.forEach(e=>{
+      const tag = String(e.skillTag||'').trim() || '(sem tag)';
+      tagCount[tag] = (tagCount[tag]||0)+1;
+    });
+    const topTags = Object.entries(tagCount)
+      .sort((a,b)=>b[1]-a[1])
+      .slice(0,5)
+      .map(([tag,count])=>({tag,count}));
+
+    return {
+      schema: "PET_WEEKLY_SUMMARY_v1",
+      generatedAt: now,
+      windowDays: days,
+      student: {
+        name: String(profile?.name || ''),
+        code: String(profile?.code || ''),
+        turma: String(profile?.turma || ''),
+        escola: String(profile?.escola || '')
+      },
+      usage: {
+        activeDays: daySet.size,
+        totalMinutes: Math.round(totalSec/60),
+        sessions: weekSessions.length,
+        questions: totalQ
+      },
+      performance: {
+        accuracy: totalQ>0 ? Math.round((totalCorrect/totalQ)*1000)/10 : null,
+        byOperation: byOp
+      },
+      difficulties: {
+        topSkillTags: topTags
+      },
+      notes: "Resumo semanal gerado offline. Para validação fora do app, aplique o protocolo PET-8 (caderno)."
+    };
+  }
+
+  function downloadJsonFile(filename, obj){
+    const blob = new Blob([JSON.stringify(obj, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  }
+
+function init(){
     // Profile select (single for now)
     if (els.profileSelect){
       els.profileSelect.innerHTML = '<option value="app">Atual (do app)</option>';
@@ -369,6 +468,14 @@ const topMistakes = summarizeTop(errors, (e)=>{
       const report = parseCode(code);
       const name = `matemagica_relatorio_${(report.studentCode||report.studentName||'aluno')}_${report.periodStart}_${report.periodEnd}.csv`;
       download(name, 'text/csv;charset=utf-8', makeCsv(report));
+
+
+    els.btnWeekly?.addEventListener('click', ()=>{
+      const summary = buildWeeklySummary(7);
+      const safeName = (summary.student.code || summary.student.name || 'aluno').toString().trim().replace(/\s+/g,'_');
+      const name = `matemagica_resumo_semanal_${safeName}.json`;
+      downloadJsonFile(name, summary);
+    });
     });
   }
 
