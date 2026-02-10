@@ -25,6 +25,19 @@
     pasteWrap: document.getElementById('paste-wrap'),
     btnImportWeekly: document.getElementById('btn-import-weekly'),
     fileWeekly: document.getElementById('file-weekly'),
+    btnWeeklyPasteJson: document.getElementById('btn-weekly-paste-json'),
+    btnWeeklyPasteQr: document.getElementById('btn-weekly-paste-qr'),
+    weeklyPasteJson: document.getElementById('weekly-paste-json'),
+    weeklyPasteQr: document.getElementById('weekly-paste-qr'),
+    inpWeeklyJson: document.getElementById('inp-weekly-json'),
+    btnImportWeeklyJson: document.getElementById('btn-import-weekly-json'),
+    btnCloseWeeklyJson: document.getElementById('btn-close-weekly-json'),
+    inpWeeklyQrChunk: document.getElementById('inp-weekly-qrchunk'),
+    btnAddWeeklyQrChunk: document.getElementById('btn-add-weekly-qrchunk'),
+    btnResetWeeklyQr: document.getElementById('btn-reset-weekly-qr'),
+    btnCloseWeeklyQr: document.getElementById('btn-close-weekly-qr'),
+    weeklyQrProgress: document.getElementById('weekly-qr-progress'),
+    weeklyQrDebug: document.getElementById('weekly-qr-debug'),
     weeklyTblBody: document.getElementById('weekly-tbl-body'),
     weeklyCountText: document.getElementById('weekly-count-text'),
     weeklyClassSummary: document.getElementById('weekly-class-summary'),
@@ -108,7 +121,64 @@
     saveDb(db);
   }
 
-  function parseWeeklyJson(raw){
+  
+  // --- QR Casa→Escola (Resumo semanal) ---
+  function b64urlDecode(b64url){
+    let b64 = String(b64url||'').replace(/-/g,'+').replace(/_/g,'/');
+    while (b64.length % 4) b64 += '=';
+    return decodeURIComponent(escape(atob(b64)));
+  }
+  function parseWeeklyQrChunk(line){
+    const s = String(line||'').trim();
+    if (!s) return null;
+    if (!s.startsWith('PETWS1|')) throw new Error('Código QR inválido: esperado PETWS1|...');
+    const parts = s.split('|');
+    if (parts.length < 4) throw new Error('Código QR incompleto.');
+    const id = parts[1];
+    const frac = parts[2];
+    const payload = parts.slice(3).join('|'); // allow | inside (rare)
+    const m = frac.match(/^(\d+)\/(\d+)$/);
+    if (!m) throw new Error('Código QR inválido: parte/total.');
+    const idx = parseInt(m[1],10);
+    const total = parseInt(m[2],10);
+    if (!(idx>=1 && total>=1 && idx<=total)) throw new Error('Código QR inválido: índice fora do range.');
+    return { id, idx, total, payload };
+  }
+  const weeklyQrBuffer = { id:null, total:0, parts:{} };
+  function resetWeeklyQrBuffer(){
+    weeklyQrBuffer.id = null;
+    weeklyQrBuffer.total = 0;
+    weeklyQrBuffer.parts = {};
+    if (els.weeklyQrProgress) els.weeklyQrProgress.textContent = 'Aguardando partes...';
+  }
+  function addWeeklyQrChunk(line){
+    const c = parseWeeklyQrChunk(line);
+    if (!c) return;
+    if (!weeklyQrBuffer.id){
+      weeklyQrBuffer.id = c.id;
+      weeklyQrBuffer.total = c.total;
+    }
+    if (weeklyQrBuffer.id !== c.id) throw new Error('Você começou um resumo diferente. Use "Resetar" e cole as partes do mesmo ID.');
+    if (weeklyQrBuffer.total !== c.total) throw new Error('Total de partes não confere. Use "Resetar".');
+    weeklyQrBuffer.parts[c.idx] = c.payload;
+    const got = Object.keys(weeklyQrBuffer.parts).length;
+    if (els.weeklyQrProgress) els.weeklyQrProgress.textContent = `Recebidas ${got}/${weeklyQrBuffer.total} partes (ID ${weeklyQrBuffer.id}).`;
+    if (got === weeklyQrBuffer.total){
+      let joined = '';
+      for (let i=1;i<=weeklyQrBuffer.total;i++){
+        if (!weeklyQrBuffer.parts[i]) throw new Error('Faltando parte '+i);
+        joined += weeklyQrBuffer.parts[i];
+      }
+      const json = b64urlDecode(joined);
+      const obj = parseWeeklyJson(json);
+      upsertWeekly(obj);
+      render();
+      resetWeeklyQrBuffer();
+      alert('Resumo semanal importado com sucesso (via QR).');
+    }
+  }
+
+function parseWeeklyJson(raw){
     const obj = JSON.parse(String(raw||''));
     if (!obj || obj.schema !== 'PET_WEEKLY_SUMMARY_v1') throw new Error('JSON não é um resumo semanal PET válido.');
     return obj;
@@ -779,6 +849,8 @@ function copyWhats(){
   let stream = null;
   let scanning = false;
   let detector = null;
+  let lastRaw = '';
+  let lastRawAt = 0;
 
   async function startScan(){
     if (scanning) return;
@@ -823,14 +895,30 @@ function copyWhats(){
       const codes = await detector.detect(els.video);
       if (codes && codes.length){
         const raw = codes[0].rawValue || '';
-        if (raw.startsWith('MMR1:')) {
-          const r = parseCode(raw);
-          upsertReport(r);
-          render();
-          toast(`✅ Importado: ${(r.studentCode||r.studentName||'-')}`);
-          // continua escaneando (1 toque para o próximo: só manter a câmera aberta)
-          // Evitar import duplicado em loop
-          await sleep(900);
+        const now = Date.now();
+        // Evitar reprocessar o mesmo QR em loop (câmera parada)
+        if (raw && raw === lastRaw && (now - lastRawAt) < 1200) {
+          // ignore
+        } else if (raw) {
+          lastRaw = raw; lastRawAt = now;
+
+          if (raw.startsWith('MMR1:')) {
+            const r = parseCode(raw);
+            upsertReport(r);
+            render();
+            toast(`✅ Importado (MMR1): ${(r.studentCode||r.studentName||'-')}`);
+            await sleep(900);
+          } else if (raw.startsWith('PETWS1|')) {
+            try {
+              addWeeklyQrChunk(raw);
+              // addWeeklyQrChunk atualiza o progresso e alerta quando completa
+              toast('📦 Parte do resumo semanal capturada.');
+            } catch (e) {
+              console.warn(e);
+              toast('⚠️ QR de resumo inválido/fora de ordem. Use “Resetar” e tente novamente.');
+            }
+            await sleep(900);
+          }
         }
       }
     } catch (_) {}
@@ -889,6 +977,50 @@ function copyWhats(){
     els.btnImport?.addEventListener('click', importFromTextarea);
     els.btnPaste?.addEventListener('click', togglePaste);
     els.btnImportWeekly?.addEventListener('click', ()=>els.fileWeekly?.click());
+
+    // Resumo semanal: opções sem arquivo (colar JSON / colar texto do QR)
+    els.btnWeeklyPasteJson?.addEventListener('click', ()=>{
+      if (els.weeklyPasteQr) els.weeklyPasteQr.style.display = 'none';
+      if (els.weeklyPasteJson) els.weeklyPasteJson.style.display = (els.weeklyPasteJson.style.display==='none' || !els.weeklyPasteJson.style.display) ? 'block' : 'none';
+    });
+    els.btnWeeklyPasteQr?.addEventListener('click', ()=>{
+      if (els.weeklyPasteJson) els.weeklyPasteJson.style.display = 'none';
+      if (els.weeklyPasteQr) els.weeklyPasteQr.style.display = (els.weeklyPasteQr.style.display==='none' || !els.weeklyPasteQr.style.display) ? 'block' : 'none';
+      resetWeeklyQrBuffer();
+    });
+    els.btnImportWeeklyJson?.addEventListener('click', ()=>{
+      const raw = String(els.inpWeeklyJson?.value||'');
+      if (!raw.trim()) return alert('Cole o JSON primeiro.');
+      try{
+        const obj = parseWeeklyJson(raw);
+        upsertWeekly(obj);
+        render();
+        els.inpWeeklyJson.value = '';
+        if (els.weeklyPasteJson) els.weeklyPasteJson.style.display = 'none';
+        alert('Resumo semanal importado.');
+      }catch(e){
+        alert(e?.message || 'Falha ao importar JSON.');
+      }
+    });
+    els.btnCloseWeeklyJson?.addEventListener('click', ()=>{
+      if (els.weeklyPasteJson) els.weeklyPasteJson.style.display = 'none';
+    });
+    els.btnAddWeeklyQrChunk?.addEventListener('click', ()=>{
+      try{
+        const line = String(els.inpWeeklyQrChunk?.value||'');
+        if (!line.trim()) return alert('Cole o texto do QR primeiro.');
+        addWeeklyQrChunk(line);
+        els.inpWeeklyQrChunk.value = '';
+      }catch(e){
+        alert(e?.message || 'Falha ao adicionar parte.');
+      }
+    });
+    els.btnResetWeeklyQr?.addEventListener('click', resetWeeklyQrBuffer);
+    els.btnCloseWeeklyQr?.addEventListener('click', ()=>{
+      if (els.weeklyPasteQr) els.weeklyPasteQr.style.display = 'none';
+      resetWeeklyQrBuffer();
+    });
+
     els.fileWeekly?.addEventListener('change', ()=>{
       const f = els.fileWeekly.files?.[0];
       if (!f) return;

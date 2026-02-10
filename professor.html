@@ -38,13 +38,42 @@
       <div class="info-card">
         <h3>Importar relatório (MMR1)</h3>
 <div class="mm-row" style="margin-top:10px;flex-direction:column;align-items:stretch;gap:10px;">
-          <button id="btn-scan" class="main-btn" type="button" style="font-size:1.15em;padding:18px 16px;border-radius:18px;">📷 Escanear QR</button>
+          <button id="btn-scan" class="main-btn" type="button" style="font-size:1.15em;padding:18px 16px;border-radius:18px;">📷 Escanear QR (câmera)</button>
           <button id="btn-paste" class="main-btn" type="button" style="font-size:1.05em;padding:16px 16px;border-radius:18px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.35);">⌨️ Colar código</button>
 
           
 
           <button id="btn-import-weekly" class="main-btn" type="button" style="font-size:1.05em;padding:16px 16px;border-radius:18px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.35);">🏠→🏫 Importar resumo semanal (JSON)</button>
           <input id="file-weekly" type="file" accept="application/json,.json" style="display:none;" />
+          <div id="weekly-import-wrap" style="margin-top:10px;">
+            <div class="mm-row">
+              <button id="btn-weekly-paste-json" class="secondary-btn" type="button">Colar JSON</button>
+              <button id="btn-weekly-paste-qr" class="secondary-btn" type="button">Colar código do QR</button>
+            </div>
+
+            <div id="weekly-paste-json" style="display:none;margin-top:10px;">
+              <label class="tiny muted">Cole o JSON do Resumo Semanal (PET_WEEKLY_SUMMARY_v1)</label>
+              <textarea id="inp-weekly-json" placeholder="{...}" style="min-height:110px;"></textarea>
+              <div class="mm-row" style="margin-top:8px;">
+                <button id="btn-import-weekly-json" class="main-btn" type="button">Importar JSON</button>
+                <button id="btn-close-weekly-json" class="secondary-btn" type="button">Fechar</button>
+              </div>
+            </div>
+
+            <div id="weekly-paste-qr" style="display:none;margin-top:10px;">
+              <label class="tiny muted">Cole o texto lido do QR (formato PETWS1|...)</label>
+              <input id="inp-weekly-qrchunk" class="mm-input" placeholder="PETWS1|id|1/3|..." />
+              <div class="mm-row" style="margin-top:8px;">
+                <button id="btn-add-weekly-qrchunk" class="main-btn" type="button">Adicionar parte</button>
+                <button id="btn-reset-weekly-qr" class="secondary-btn" type="button">Resetar</button>
+                <button id="btn-close-weekly-qr" class="secondary-btn" type="button">Fechar</button>
+              </div>
+              <p id="weekly-qr-progress" class="tiny muted" style="margin-top:8px;">Aguardando partes...</p>
+              <textarea id="weekly-qr-debug" readonly style="display:none;min-height:70px;"></textarea>
+              <p class="tiny muted">Dica: se você não tiver leitor dentro do navegador, use a câmera/leitor de QR do celular, copie o texto e cole aqui.</p>
+            </div>
+          </div>
+
 <div id="paste-wrap" style="display:none;margin-top:8px;">
             <label class="tiny muted">Cole aqui o código do relatório (MMR1)</label>
             <textarea id="inp-code" placeholder="Cole o código aqui..."></textarea>

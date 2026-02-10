@@ -3320,10 +3320,7 @@ function initRedesignUI() {
             const prog = st && st.progress && st.progress[cid] ? st.progress[cid] : null;
             const hasProgress = !!(prog && (prog.unit > 0 || prog.lesson > 0 || (prog.done && Object.keys(prog.done).length > 0)));
             if (hasProgress) {
-                const okContinue = window.confirm('Continuar de onde parou?
-
-OK = Continuar
-Cancelar = Começar novo jogo');
+                const okContinue = window.confirm('Continuar de onde parou?\n\nOK = Continuar\nCancelar = Começar novo jogo');
                 if (!okContinue) {
                     // novo jogo: zera progresso da campanha selecionada
                     if (!st.progress) st.progress = {};

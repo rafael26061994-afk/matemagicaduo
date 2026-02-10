@@ -28,6 +28,12 @@
     btnJson: document.getElementById('btn-download-json'),
     btnCsv: document.getElementById('btn-download-csv'),
     btnWeekly: document.getElementById('btn-download-weekly'),
+    btnWeeklyQr: document.getElementById('btn-weekly-qr'),
+    weeklyQrPanel: document.getElementById('weekly-qr-panel'),
+    weeklyQrList: document.getElementById('weekly-qr-list'),
+    weeklyQrText: document.getElementById('weekly-qr-text'),
+    btnCopyWeeklyCode: document.getElementById('btn-copy-weekly-code'),
+    btnHideWeeklyQr: document.getElementById('btn-hide-weekly-qr'),
   };
 
   function safeParse(raw, fallback){
@@ -399,6 +405,66 @@ const topMistakes = summarizeTop(errors, (e)=>{
     };
   }
 
+  // --- QR Casa→Escola (Resumo semanal) ---
+  function b64urlEncode(str){
+    // UTF-8 safe base64url
+    const b64 = btoa(unescape(encodeURIComponent(str)));
+    return b64.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  }
+  function b64urlDecode(b64url){
+    let b64 = String(b64url||'').replace(/-/g,'+').replace(/_/g,'/');
+    // pad
+    while (b64.length % 4) b64 += '=';
+    return decodeURIComponent(escape(atob(b64)));
+  }
+  function shortId(s){
+    // deterministic short id (not crypto)
+    let h = 2166136261;
+    for (let i=0;i<s.length;i++){
+      h ^= s.charCodeAt(i);
+      h = (h * 16777619) >>> 0;
+    }
+    return h.toString(16).slice(0,8);
+  }
+  function makeWeeklyQrChunks(summaryObj, maxChunkLen=800){
+    const json = JSON.stringify(summaryObj);
+    const payload = b64urlEncode(json);
+    const id = shortId(payload);
+    const total = Math.ceil(payload.length / maxChunkLen);
+    const chunks = [];
+    for (let i=0;i<total;i++){
+      const part = payload.slice(i*maxChunkLen, (i+1)*maxChunkLen);
+      chunks.push(`PETWS1|${id}|${i+1}/${total}|${part}`);
+    }
+    return { id, total, chunks, json };
+  }
+  function renderWeeklyQr(chunksObj){
+    if (!els.weeklyQrPanel || !els.weeklyQrList || !els.weeklyQrText) return;
+    els.weeklyQrList.innerHTML = '';
+    els.weeklyQrText.value = chunksObj.chunks.join('\n');
+    for (let i=0;i<chunksObj.chunks.length;i++){
+      const code = chunksObj.chunks[i];
+      const card = document.createElement('div');
+      card.style.border = '1px solid rgba(255,255,255,0.16)';
+      card.style.borderRadius = '14px';
+      card.style.padding = '10px';
+      card.style.background = 'rgba(0,0,0,0.18)';
+      const label = document.createElement('div');
+      label.className = 'tiny muted';
+      label.style.marginBottom = '6px';
+      label.textContent = `QR ${i+1}/${chunksObj.total}`;
+      const qr = document.createElement('div');
+      qr.style.display = 'flex';
+      qr.style.justifyContent = 'center';
+      qr.style.alignItems = 'center';
+      new QRCode(qr, { text: code, width: 170, height: 170, correctLevel: QRCode.CorrectLevel.M });
+      card.appendChild(label);
+      card.appendChild(qr);
+      els.weeklyQrList.appendChild(card);
+    }
+    els.weeklyQrPanel.style.display = 'block';
+  }
+
   function downloadJsonFile(filename, obj){
     const blob = new Blob([JSON.stringify(obj, null, 2)], {type:'application/json'});
     const a = document.createElement('a');
@@ -477,7 +543,32 @@ function init(){
       downloadJsonFile(name, summary);
     });
     });
-  }
+  
+    // QR Casa→Escola (Resumo semanal)
+    els.btnWeeklyQr?.addEventListener('click', ()=>{
+      const summary = buildWeeklySummary(7);
+      const chunksObj = makeWeeklyQrChunks(summary, 800);
+      renderWeeklyQr(chunksObj);
+    });
+    els.btnCopyWeeklyCode?.addEventListener('click', async ()=>{
+      try{
+        await navigator.clipboard.writeText(String(els.weeklyQrText?.value || ''));
+        alert('Código copiado. Cole no Painel do Professor.');
+      }catch(_){
+        // fallback
+        try{
+          els.weeklyQrText?.select();
+          document.execCommand('copy');
+          alert('Código copiado. Cole no Painel do Professor.');
+        }catch(__){
+          alert('Não consegui copiar automaticamente. Selecione e copie o texto.');
+        }
+      }
+    });
+    els.btnHideWeeklyQr?.addEventListener('click', ()=>{
+      if (els.weeklyQrPanel) els.weeklyQrPanel.style.display = 'none';
+    });
+}
 
   init();
 })();

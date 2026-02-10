@@ -90,6 +90,22 @@
         <button id="btn-download-json" class="main-btn" type="button">Baixar JSON</button>
         <button id="btn-download-csv" class="main-btn" type="button">Baixar CSV</button>
         <button id="btn-download-weekly" class="main-btn" type="button">Resumo semanal</button>
+        <button id="btn-weekly-qr" class="secondary-btn" type="button">Gerar QR (Casa→Escola)</button>
+      </div>
+
+      <div id="weekly-qr-panel" style="display:none;margin-top:12px;">
+        <p class="tiny muted">Mostre os QR Codes para o professor. Se preferir, use um leitor de QR para copiar o texto e colar no Painel do Professor.</p>
+        <div id="weekly-qr-list" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;"></div>
+        <div style="margin-top:10px;">
+          <label class="tiny muted">Código (texto) — útil para copiar/colar</label>
+          <textarea id="weekly-qr-text" readonly style="min-height:90px;"></textarea>
+          <div class="mm-row" style="margin-top:8px;">
+            <button id="btn-copy-weekly-code" class="secondary-btn" type="button">Copiar código</button>
+            <button id="btn-hide-weekly-qr" class="secondary-btn" type="button">Fechar</button>
+          </div>
+        </div>
+      </div>
+
       </div>
 
       <p class="tiny">O professor pode importar pelo QR ou colar o código no <strong>Painel do Professor</strong>.</p>
