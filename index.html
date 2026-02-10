@@ -290,7 +290,25 @@
                 <div id="hint-body" class="hint-body"></div>
                 <button id="btn-next-hint" type="button" class="btn-primary hint-next">Próxima dica</button>
             </div>
-<button id="btn-submit-typed" type="button" class="btn-primary typed-submit">Responder</button>
+
+            <div id="typed-area" class="typed-area hidden" aria-label="Resposta digitada">
+                <input id="typed-input" inputmode="numeric" pattern="[0-9]*" class="typed-input" placeholder="Digite a resposta">
+                <div id="typed-keypad" class="typed-keypad" aria-label="Teclado numérico">
+                    <button type="button" class="kp" data-k="7">7</button>
+                    <button type="button" class="kp" data-k="8">8</button>
+                    <button type="button" class="kp" data-k="9">9</button>
+                    <button type="button" class="kp kp-fn" data-k="bs">⌫</button>
+                    <button type="button" class="kp" data-k="4">4</button>
+                    <button type="button" class="kp" data-k="5">5</button>
+                    <button type="button" class="kp" data-k="6">6</button>
+                    <button type="button" class="kp kp-fn" data-k="clr">Limpar</button>
+                    <button type="button" class="kp" data-k="1">1</button>
+                    <button type="button" class="kp" data-k="2">2</button>
+                    <button type="button" class="kp" data-k="3">3</button>
+                    <button type="button" class="kp kp-ok" data-k="ok">OK</button>
+                    <button type="button" class="kp kp-zero" data-k="0">0</button>
+                </div>
+                <button id="btn-submit-typed" type="button" class="btn-primary typed-submit">Responder</button>
             </div>
 
             <div id="microcheck-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Checkpoint rápido">
@@ -425,19 +443,5 @@
 <script src="script.js"></script>
   <div id="vlibras-root"></div>
   <script src="a11y.js"></script>
-
-  <!-- Modal: continuar ou novo jogo (campanha) -->
-  <div id="resume-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="resume-title">
-    <div class="modal-card">
-      <h3 id="resume-title" class="h2">Campanha</h3>
-      <p class="muted">Você quer continuar de onde parou ou começar um novo jogo?</p>
-      <div class="row gap">
-        <button id="btn-resume-campaign" class="btn">Continuar</button>
-        <button id="btn-new-campaign" class="btn secondary">Novo jogo</button>
-      </div>
-      <button id="btn-close-resume" class="btn ghost modal-close" aria-label="Fechar">Fechar</button>
-    </div>
-  </div>
-
 </body>
 </html>

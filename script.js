@@ -60,14 +60,6 @@ const gameState = {
     // Mentor (balão estilo Duolingo)
     mentor: { enabled: true, who: 'ronaldo', lastMsg: '' },
     wrongStreak: 0,
-    lastErrorType: null,
-    errorTypeStreakCount: 0,
-    lessonGatePending: false,
-    lessonGateReason: 'first',
-    guidedRemaining: 0,
-    totalAnswerMs: 0,
-    answeredCount: 0,
-    a11y: { oneHand: 'off', haptics: true, ttsAuto: true, ttsRate: 1.0 },
     forceEasy: 0,
     isVoiceReadActive: false,
     isRapidMode: true,
@@ -120,157 +112,6 @@ const gameState = {
     erros: 0
 };
 
-// v20 — Bancos fixos (50) para Adição/Subtração por nível (sem repetição até completar)
-const ADD_BANK_KEY = 'matemagica_add_bank_v1';
-const SUB_BANK_KEY = 'matemagica_sub_bank_v1';
-const ADD_IDX_KEY  = 'matemagica_add_idx_v1';
-const SUB_IDX_KEY  = 'matemagica_sub_idx_v1';
-
-function loadBank(key){
-  try{
-    const raw = localStorage.getItem(key);
-    const obj = raw ? JSON.parse(raw) : {};
-    return (obj && typeof obj === 'object') ? obj : {};
-  }catch(_){ return {}; }
-}
-function saveBank(key, obj){
-  try{ localStorage.setItem(key, JSON.stringify(obj||{})); }catch(_){}
-}
-function loadIdx(key){
-  try{
-    const raw = localStorage.getItem(key);
-    const obj = raw ? JSON.parse(raw) : {};
-    return (obj && typeof obj === 'object') ? obj : {};
-  }catch(_){ return {}; }
-}
-function saveIdx(key,obj){
-  try{ localStorage.setItem(key, JSON.stringify(obj||{})); }catch(_){}
-}
-
-function randInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
-
-function buildAddBank(level){
-  // metas: 50 operações, com mistura B (vai-um) principalmente no médio/difícil
-  const out=[];
-  const seen=new Set();
-  let tries=0;
-  const cfg = (level==='easy')
-    ? {aMax:12, bMax:12, sumMax:20, pCarry:0.25}
-    : (level==='medium')
-      ? {aMax:25, bMax:25, sumMax:50, pCarry:0.55}
-      : {aMax:60, bMax:60, sumMax:100, pCarry:0.65};
-
-  while(out.length<50 && tries<20000){
-    tries++;
-    let a=randInt(0,cfg.aMax);
-    let b=randInt(0,cfg.bMax);
-    let s=a+b;
-    if (s>cfg.sumMax) continue;
-
-    // força "padrão B" (vai-um) em parte dos itens (quando aplicável)
-    const wantCarry = Math.random() < cfg.pCarry;
-    if (wantCarry){
-      // tentar criar carry em unidades: (a%10 + b%10 >= 10)
-      const au = randInt(0,9);
-      const bu = randInt(10-au,9);
-      const at = randInt(0, Math.floor(cfg.aMax/10));
-      const bt = randInt(0, Math.floor(cfg.bMax/10));
-      a = at*10 + au;
-      b = bt*10 + bu;
-      s = a+b;
-      if (a>cfg.aMax || b>cfg.bMax || s>cfg.sumMax) continue;
-      if ((a%10 + b%10) < 10) continue;
-    }
-
-    const k=a+'+'+b;
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push({a,b,ans:s});
-  }
-  // fallback: completa sem restrição de carry
-  while(out.length<50){
-    let a=randInt(0,cfg.aMax);
-    let b=randInt(0,cfg.bMax);
-    let s=a+b;
-    if (s>cfg.sumMax) continue;
-    const k=a+'+'+b;
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push({a,b,ans:s});
-  }
-  return out;
-}
-
-function buildSubBank(level){
-  const out=[];
-  const seen=new Set();
-  let tries=0;
-  const cfg = (level==='easy')
-    ? {max:20, pBorrow:0.20}
-    : (level==='medium')
-      ? {max:50, pBorrow:0.55}
-      : {max:100, pBorrow:0.65};
-
-  while(out.length<50 && tries<20000){
-    tries++;
-    let a=randInt(0,cfg.max);
-    let b=randInt(0,cfg.max);
-    if (b>a) { const t=a; a=b; b=t; }
-    let d=a-b;
-
-    const wantBorrow = Math.random() < cfg.pBorrow;
-    if (wantBorrow){
-      // força empréstimo na casa das unidades: (a%10 < b%10)
-      const au = randInt(0,8);
-      const bu = randInt(au+1,9);
-      const at = randInt(0, Math.floor(cfg.max/10));
-      const bt = randInt(0, Math.floor(cfg.max/10));
-      a = at*10 + au;
-      b = bt*10 + bu;
-      if (b>a) { const t=a; a=b; b=t; }
-      d=a-b;
-      if ((a%10) >= (b%10)) continue;
-      if (a>cfg.max || b>cfg.max) continue;
-    }
-
-    const k=a+'-'+b;
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push({a,b,ans:d});
-  }
-  while(out.length<50){
-    let a=randInt(0,cfg.max);
-    let b=randInt(0,cfg.max);
-    if (b>a) { const t=a; a=b; b=t; }
-    const k=a+'-'+b;
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push({a,b,ans:a-b});
-  }
-  return out;
-}
-
-function getBankedQuestion(operation, level){
-  const bankKey = (operation==='addition') ? ADD_BANK_KEY : SUB_BANK_KEY;
-  const idxKey  = (operation==='addition') ? ADD_IDX_KEY : SUB_IDX_KEY;
-
-  const banks = loadBank(bankKey);
-  const idxs  = loadIdx(idxKey);
-
-  if (!banks[level] || !Array.isArray(banks[level]) || banks[level].length !== 50){
-    banks[level] = (operation==='addition') ? buildAddBank(level) : buildSubBank(level);
-    saveBank(bankKey, banks);
-  }
-  const bank = banks[level];
-
-  const cur = Number(idxs[level] || 0);
-  const q = bank[cur % bank.length];
-  idxs[level] = (cur + 1) % bank.length;
-  saveIdx(idxKey, idxs);
-
-  return q;
-}
-
 
 // --- FUNÇÕES UTILITY E ACESSIBILIDADE ---
 
@@ -315,7 +156,7 @@ function speak(text) {
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'pt-BR';
-    utterance.rate = (gameState.a11y && Number.isFinite(gameState.a11y.ttsRate)) ? gameState.a11y.ttsRate : 1.0;
+    utterance.rate = 1.0; 
     
     synth.speak(utterance);
 }
@@ -386,265 +227,6 @@ function announceCurrentQuestion() {
 }
 
 
-
-// --- Sprint 1 (v20): Modo Aprender (microaulas por skill) ---
-const LESSONS_SEEN_KEY = 'matemagica_lessons_seen_v1';
-function loadLessonsSeen(){
-  try{ return JSON.parse(localStorage.getItem(LESSONS_SEEN_KEY)||'{}') || {}; }catch(_){ return {}; }
-}
-function saveLessonsSeen(obj){
-  try{ localStorage.setItem(LESSONS_SEEN_KEY, JSON.stringify(obj)); }catch(_){}
-}
-function getSkillKey(op, level){
-  // skill chave por operação+nivel (suficiente p/ Base/Reforço no v20)
-  return `${op}_${level}`;
-}
-const LESSONS = {
-  // Adição/Subtração (≤20)
-  'addition_easy': {
-    title: 'Adição até 20',
-    concept: 'Somar é juntar quantidades. Quando passa de 10, a gente forma uma dezena.',
-    visual: (a,b)=> `Ex.: <strong>8 + 7</strong> → <strong>8 + (2 + 5)</strong> → <strong>(8+2) + 5</strong> → <strong>10 + 5 = 15</strong>`,
-    strategy: 'Estratégia: complete 10 primeiro. Pegue do segundo número só o que falta pra virar 10.'
-  },
-  'addition_medium': {
-    title: 'Adição até 20 (misto)',
-    concept: 'Às vezes precisa “vai‑um” (carry).',
-    visual: ()=> `Ex.: <strong>9 + 8</strong> → <strong>9 + (1+7)</strong> → <strong>10 + 7 = 17</strong>`,
-    strategy: 'Estratégia: procure rapidamente “quanto falta para 10”.'
-  },
-  'addition_advanced': {
-    title: 'Adição (difícil)',
-    concept: 'No nível difícil, as somas podem exigir mais atenção no “passou de 10”.',
-    visual: ()=> `Ex.: <strong>18 + 7</strong> → <strong>18 + (2+5)</strong> → <strong>20 + 5 = 25</strong>`,
-    strategy: 'Estratégia: complete a próxima dezena (20, 30...).'
-  },
-
-  'subtraction_easy': {
-    title: 'Subtração até 20',
-    concept: 'Subtrair é tirar. Se não dá nas unidades, a gente “empresta” uma dezena.',
-    visual: ()=> `Ex.: <strong>12 − 7</strong> → <strong>(10+2) − 7</strong> → <strong>(10 − 5) = 5</strong> (complete 10 ao contrário)`,
-    strategy: 'Estratégia: pense em “quanto falta” para chegar no primeiro número.'
-  },
-  'subtraction_medium': {
-    title: 'Subtração (com empréstimo)',
-    concept: 'Quando a unidade do primeiro é menor, usamos empréstimo (borrow).',
-    visual: ()=> `Ex.: <strong>13 − 8</strong> → <strong>13 = 10 + 3</strong> → pegue 1 dezena: <strong>13 = 0 dezenas + 13</strong> → <strong>13−8=5</strong>`,
-    strategy: 'Estratégia: transforme uma dezena em 10 unidades quando precisar.'
-  },
-  'subtraction_advanced': {
-    title: 'Subtração (difícil)',
-    concept: 'A lógica é a mesma: se faltar unidade, empresta.',
-    visual: ()=> `Ex.: <strong>20 − 9</strong> → <strong>20 = 1 dezena + 10</strong> → <strong>10 − 9 = 1</strong> → resultado <strong>11</strong>`,
-    strategy: 'Estratégia: quebre em dezenas e unidades.'
-  },
-
-  // Multiplicação por faixas
-  'multiplication_easy': {
-    title: 'Multiplicação (tabuadas 0–5)',
-    concept: 'Multiplicar é soma repetida e também “área” em uma grade.',
-    visual: ()=> `Ex.: <strong>3 × 4</strong> → 3 linhas e 4 colunas = <strong>12</strong> (conte os quadradinhos)`,
-    strategy: 'Estratégia: use a grade mental (linhas/colunas).'
-  },
-  'multiplication_medium': {
-    title: 'Multiplicação (tabuadas 6–10)',
-    concept: 'Aqui você treina as tabuadas mais usadas.',
-    visual: ()=> `Dica: <strong>7×8</strong> fica perto de <strong>7×7</strong> e <strong>7×9</strong>.`,
-    strategy: 'Estratégia: compare com a tabuada vizinha (n±1) para conferir.'
-  },
-  'multiplication_advanced': {
-    title: 'Multiplicação (tabuadas 11–20)',
-    concept: 'Nível difícil: foco em padrões e conferência.',
-    visual: ()=> `Dica: <strong>12×n</strong> = <strong>10×n + 2×n</strong>.`,
-    strategy: 'Estratégia: decomponha (10×n + 2×n).'
-  }
-};
-
-function ensureLessonModal(){
-  if (document.getElementById('lesson-overlay')) return;
-  const div = document.createElement('div');
-  div.id = 'lesson-overlay';
-  div.className = 'lesson-overlay hidden';
-  div.innerHTML = `
-    <div class="lesson-card" role="dialog" aria-modal="true" aria-label="Modo Aprender">
-      <div class="lesson-head">
-        <h3 id="lesson-title" class="lesson-title">Modo Aprender</h3>
-        <button id="lesson-close" class="lesson-close" type="button" aria-label="Fechar">✕</button>
-      </div>
-      <div class="lesson-body" id="lesson-body"></div>
-      <div class="lesson-actions">
-        <button id="lesson-start" class="main-btn cta-btn" type="button">Começar treino</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(div);
-
-  const close = ()=>{ div.classList.add('hidden'); };
-  div.querySelector('#lesson-close').addEventListener('click', close);
-  // ESC fecha
-  div.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ e.preventDefault(); close(); }});
-}
-
-function showLesson(skillKey, reason, onDone){
-  ensureLessonModal();
-  const overlay = document.getElementById('lesson-overlay');
-  const lesson = LESSONS[skillKey];
-  if (!lesson){
-    // sem aula disponível: segue
-    if (typeof onDone === 'function') onDone();
-    return;
-  }
-
-  const title = document.getElementById('lesson-title');
-  const body = document.getElementById('lesson-body');
-  title.textContent = lesson.title;
-
-  const visualHtml = (typeof lesson.visual === 'function') ? lesson.visual() : String(lesson.visual||'');
-  body.innerHTML = `
-    <div class="lesson-chip">${reason === 'reteach' ? 'Reensino (após erros)' : 'Primeira vez neste modo'}</div>
-    <div class="lesson-section"><h4>Conceito</h4><p>${lesson.concept}</p></div>
-    <div class="lesson-section"><h4>Visual</h4><div class="lesson-visual">${visualHtml}</div></div>
-    <div class="lesson-section"><h4>Estratégia</h4><p>${lesson.strategy}</p></div>
-  `;
-
-  overlay.classList.remove('hidden');
-  // foco no botão principal
-  const btn = document.getElementById('lesson-start');
-  btn.focus();
-
-  const finish = ()=>{
-    overlay.classList.add('hidden');
-    const seen = loadLessonsSeen();
-    seen[skillKey] = true;
-    saveLessonsSeen(seen);
-    if (typeof onDone === 'function') onDone();
-  };
-
-  btn.onclick = finish;
-}
-
-// --- Sprint 2: classificador simples + reensino após 3 erros iguais ---
-function classifyError(q, selectedAnswer){
-  try{
-    const op = q.operation || gameState.currentOperation;
-    const a = Number(q.num1);
-    const b = Number(q.num2);
-    const correct = Number(q.answer);
-    const chosen = Number(selectedAnswer);
-
-    if (!Number.isFinite(a) || !Number.isFinite(b) || !Number.isFinite(correct) || !Number.isFinite(chosen)) return 'nao_classificado';
-
-    if (op === 'addition'){
-      const needCarry = (a%10 + b%10) >= 10;
-      if (needCarry){
-        if (chosen === correct - 10) return 'carry_esquecido';
-      }
-      // erro de completar dezena (ex.: 8+7 -> 14 por pegar 1 errado)
-      if (Math.abs(chosen - correct) === 1) return 'ajuste_unidade';
-      return 'procedimento';
-    }
-
-    if (op === 'subtraction'){
-      const needBorrow = (a%10) < (b%10);
-      if (needBorrow){
-        if (chosen === correct + 10) return 'borrow_esquecido';
-      }
-      if (chosen === (b - a)) return 'ordem_invertida';
-      if (Math.abs(chosen - correct) === 1) return 'ajuste_unidade';
-      return 'procedimento';
-    }
-
-    if (op === 'multiplication'){
-      // tabuada vizinha
-      if (b !== 0 && (chosen === (a+1)*b || chosen === (a-1)*b || chosen === a*(b+1) || chosen === a*(b-1))) return 'tabuada_vizinha';
-      return 'procedimento';
-    }
-
-    if (op === 'division'){
-      const qv = Math.floor(a/b);
-      if (chosen === qv+1 || chosen === qv-1) return 'quociente_mais_menos_1';
-      return 'procedimento';
-    }
-
-    if (op === 'power'){
-      if (Math.abs(chosen - correct) === 1) return 'potencia_proxima';
-      return 'procedimento';
-    }
-
-    if (op === 'root'){
-      if (Math.abs(chosen - correct) === 1) return 'raiz_mais_menos_1';
-      return 'procedimento';
-    }
-
-    return 'nao_classificado';
-  }catch(_){
-    return 'nao_classificado';
-  }
-}
-
-function registerErrorTypeAndMaybeReteach(errorType){
-  const skillKey = getSkillKey(gameState.currentOperation, gameState.currentLevel);
-
-  if (!errorType) errorType = 'nao_classificado';
-
-  if (gameState.lastErrorType === errorType){
-    gameState.errorTypeStreakCount = (gameState.errorTypeStreakCount || 0) + 1;
-  } else {
-    gameState.lastErrorType = errorType;
-    gameState.errorTypeStreakCount = 1;
-  }
-
-  if (gameState.errorTypeStreakCount >= 3){
-    // dispara reensino
-    gameState.errorTypeStreakCount = 0;
-    gameState.lastErrorType = null;
-    gameState.guidedRemaining = 2;
-    gameState.lessonGatePending = true;
-    gameState.lessonGateReason = 'reteach';
-    gameState.lessonGateSkillKey = skillKey;
-    // volta para próxima questão sem “punir”
-    setTimeout(()=>{ nextQuestion(); }, 380);
-  }
-}
-
-// --- Sprint 3: Acessibilidade real (1 mão, TTS, vibração) ---
-const A11Y_PREFS_KEY = 'matemagica_a11y_prefs_v1';
-function loadA11yPrefs(){
-  try{ return Object.assign({ oneHand:'off', haptics:true, ttsAuto:true, ttsRate:1.0 }, JSON.parse(localStorage.getItem(A11Y_PREFS_KEY)||'{}')); }
-  catch(_){ return { oneHand:'off', haptics:true, ttsAuto:true, ttsRate:1.0 }; }
-}
-function saveA11yPrefs(p){
-  try{ localStorage.setItem(A11Y_PREFS_KEY, JSON.stringify(p)); }catch(_){}
-}
-function applyOneHandClass(){
-  const v = gameState.a11y?.oneHand || 'off';
-  document.body.classList.remove('onehand-left','onehand-right');
-  if (v === 'left') document.body.classList.add('onehand-left');
-  if (v === 'right') document.body.classList.add('onehand-right');
-}
-function haptic(ok){
-  try{
-    if (!navigator.vibrate) return;
-    if (!gameState.a11y?.haptics) return;
-    navigator.vibrate(ok ? [40] : [60,60]);
-  }catch(_){}
-}
-
-// --- Sprint 4: Identidade simples do aluno (sem PII) ---
-const STUDENT_ID_KEY = 'matemagica_student_id_v1';
-function getOrCreateStudentId(){
-  try{
-    let id = localStorage.getItem(STUDENT_ID_KEY);
-    if (id && typeof id === 'string' && id.length >= 6) return id;
-    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let out='';
-    for (let i=0;i<8;i++) out += alphabet[Math.floor(Math.random()*alphabet.length)];
-    localStorage.setItem(STUDENT_ID_KEY, out);
-    return out;
-  }catch(_){
-    return 'SEMID';
-  }
-}
 /** Exibe mensagens de feedback */
 function showFeedbackMessage(message, type, duration = 3000) {
     if (!feedbackMessageElement) return;
@@ -702,11 +284,10 @@ function loadStudentProfile() {
         gameState.studentProfile = {
             name: String(obj?.name || '').trim(),
             turma: String(obj?.turma || '').trim(),
-            escola: String(obj?.escola || '').trim(),
-            ano: String(obj?.ano || '6').trim()
+            escola: String(obj?.escola || '').trim()
         };
     } catch (e) {
-        gameState.studentProfile = { name: '', turma: '', escola: '', ano: '6' };
+        gameState.studentProfile = { name: '', turma: '', escola: '' };
     }
     return gameState.studentProfile;
 }
@@ -715,8 +296,7 @@ function saveStudentProfile(profile) {
     const safe = {
         name: String(profile?.name || '').trim().slice(0, 50),
         turma: String(profile?.turma || '').trim().slice(0, 30),
-        escola: String(profile?.escola || '').trim().slice(0, 60),
-        ano: String(profile?.ano || '6').trim().replace(/[^0-9]/g,'').slice(0,1) || '6'
+        escola: String(profile?.escola || '').trim().slice(0, 60)
     };
     localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(safe));
     gameState.studentProfile = safe;
@@ -816,6 +396,12 @@ function ensureLearningMapUI() {
         if (header && header.parentNode) {
             header.parentNode.insertBefore(card, header.nextSibling);
         } else {
+        gameState.wrongStreak = (gameState.wrongStreak || 0) + 1;
+        if (gameState.wrongStreak >= 3) {
+            // v19.1 — anti-frustração: próxima(s) questão(ões) mais fáceis sem avisar
+            gameState.forceEasy = 2;
+            gameState.wrongStreak = 0;
+        }
             screen.appendChild(card);
         }
     }
@@ -913,50 +499,8 @@ function ensureProfileUI() {
           <input id="profile-name" class="tp-input" type="text" maxlength="50" placeholder="Ex.: Ana, João, Aluno 12">
           <label class="tp-label">Turma</label>
           <input id="profile-turma" class="tp-input" type="text" maxlength="30" placeholder="Ex.: 701, 8ºA">
-
-          <label class="tp-label">Ano (6º–9º)</label>
-          <select id="profile-ano" class="tp-input">
-            <option value="6">6º</option>
-            <option value="7">7º</option>
-            <option value="8">8º</option>
-            <option value="9">9º</option>
-          </select>
           <label class="tp-label">Escola</label>
           <input id="profile-escola" class="tp-input" type="text" maxlength="60" placeholder="Ex.: E.M. ...">
-
-          <label class="tp-label">Código do aluno (automático)</label>
-          <input id="profile-id" class="tp-input" type="text" readonly>
-
-          <div class="teacher-panel-section" style="margin-top: 10px;">
-            <h4 class="tp-subtitle">Acessibilidade</h4>
-
-            <label class="tp-label">Modo 1 mão</label>
-            <select id="a11y-onehand" class="tp-input">
-              <option value="off">Desativado</option>
-              <option value="right">Destro (canto inferior direito)</option>
-              <option value="left">Canhoto (canto inferior esquerdo)</option>
-            </select>
-
-            <label class="tp-label">Vibração (haptics)</label>
-            <select id="a11y-haptics" class="tp-input">
-              <option value="on">Ativado</option>
-              <option value="off">Desativado</option>
-            </select>
-
-            <label class="tp-label">Leitura automática (TTS)</label>
-            <select id="a11y-ttsa" class="tp-input">
-              <option value="on">Ativada</option>
-              <option value="off">Desativada</option>
-            </select>
-
-            <label class="tp-label">Velocidade da voz</label>
-            <select id="a11y-rate" class="tp-input">
-              <option value="0.8">0,8x</option>
-              <option value="1.0" selected>1,0x</option>
-              <option value="1.2">1,2x</option>
-            </select>
-          </div>
-
           <div class="teacher-row" style="margin-top: 12px;">
             <button id="profile-save" class="btn-action" type="button">Salvar</button>
             <button id="profile-clear" class="btn-action btn-secondary" type="button">Limpar</button>
@@ -972,20 +516,6 @@ function ensureProfileUI() {
         overlay.querySelector('#profile-name').value = gameState.studentProfile?.name || '';
         overlay.querySelector('#profile-turma').value = gameState.studentProfile?.turma || '';
         overlay.querySelector('#profile-escola').value = gameState.studentProfile?.escola || '';
-        const anoEl = overlay.querySelector('#profile-ano');
-        if (anoEl) anoEl.value = String(gameState.studentProfile?.ano || '6');
-        const idEl = overlay.querySelector('#profile-id');
-        if (idEl) idEl.value = getOrCreateStudentId();
-
-        // A11Y prefs
-        const a = loadA11yPrefs();
-        gameState.a11y = Object.assign(gameState.a11y || {}, a);
-        applyOneHandClass();
-        const oh = overlay.querySelector('#a11y-onehand'); if (oh) oh.value = String(gameState.a11y.oneHand || 'off');
-        const hp = overlay.querySelector('#a11y-haptics'); if (hp) hp.value = (gameState.a11y.haptics ? 'on' : 'off');
-        const ta = overlay.querySelector('#a11y-ttsa'); if (ta) ta.value = (gameState.a11y.ttsAuto ? 'on' : 'off');
-        const rt = overlay.querySelector('#a11y-rate'); if (rt) rt.value = String(gameState.a11y.ttsRate || 1.0);
-
     };
     const close = () => overlay.classList.add('hidden');
 
@@ -997,25 +527,8 @@ function ensureProfileUI() {
         saveStudentProfile({
             name: overlay.querySelector('#profile-name').value,
             turma: overlay.querySelector('#profile-turma').value,
-            escola: overlay.querySelector('#profile-escola').value,
-            ano: overlay.querySelector('#profile-ano') ? overlay.querySelector('#profile-ano').value : '6'
+            escola: overlay.querySelector('#profile-escola').value
         });
-
-        // Salvar acessibilidade
-        const prefs = {
-            oneHand: (overlay.querySelector('#a11y-onehand') ? overlay.querySelector('#a11y-onehand').value : 'off'),
-            haptics: (overlay.querySelector('#a11y-haptics') ? overlay.querySelector('#a11y-haptics').value : 'on') === 'on',
-            ttsAuto: (overlay.querySelector('#a11y-ttsa') ? overlay.querySelector('#a11y-ttsa').value : 'on') === 'on',
-            ttsRate: parseFloat(overlay.querySelector('#a11y-rate') ? overlay.querySelector('#a11y-rate').value : '1.0') || 1.0
-        };
-        gameState.a11y = Object.assign(gameState.a11y || {}, prefs);
-        saveA11yPrefs(gameState.a11y);
-        applyOneHandClass();
-
-        // v20: se o aluno é 8º/9º, marcar Reforço automaticamente
-        const ano = String(overlay.querySelector('#profile-ano') ? overlay.querySelector('#profile-ano').value : '6');
-        if (ano === '8' || ano === '9') setSelectedCampaignId('reforco');
-        else setSelectedCampaignId('base');
         showFeedbackMessage('Perfil salvo!', 'success', 1500);
         close();
     });
@@ -1546,32 +1059,14 @@ function buildQuestionFromError(err) {
     let questionStr = '';
     let voiceQ = '';
     switch (op) {
-        case 'addition': {
-            // v20 — 50 operações por nível (banco) + padrão B já incorporado
-            const lvl = (gameState.currentLevel === 'advanced') ? 'advanced' : (gameState.currentLevel === 'medium' ? 'medium' : 'easy');
-
-            // anti-frustração: se forceEasy ativo, rebaixa para easy temporariamente
-            const effLvl = (gameState.forceEasy > 0) ? 'easy' : lvl;
-
-            const q = getBankedQuestion('addition', effLvl);
-            num1 = q.a; num2 = q.b; answer = q.ans;
-
+        case 'addition':
             questionStr = `${num1} + ${num2} = ?`;
             voiceQ = `Qual é o resultado de ${num1} mais ${num2}?`;
             break;
-        }
-        case 'subtraction': {
-            // v20 — 50 operações por nível (banco) + padrão B (empréstimo) incorporado
-            const lvl = (gameState.currentLevel === 'advanced') ? 'advanced' : (gameState.currentLevel === 'medium' ? 'medium' : 'easy');
-            const effLvl = (gameState.forceEasy > 0) ? 'easy' : lvl;
-
-            const q = getBankedQuestion('subtraction', effLvl);
-            num1 = q.a; num2 = q.b; answer = q.ans;
-
+        case 'subtraction':
             questionStr = `${num1} − ${num2} = ?`;
             voiceQ = `Qual é o resultado de ${num1} menos ${num2}?`;
             break;
-        }
         case 'multiplication':
             questionStr = `${num1} × ${num2} = ?`;
             voiceQ = `Qual é o resultado de ${num1} vezes ${num2}?`;
@@ -1637,15 +1132,6 @@ function startErrorTraining() {
     gameState.acertos = 0;
     gameState.erros = 0;
     gameState.sessionStartTs = Date.now();
-    gameState.totalAnswerMs = 0;
-    gameState.answeredCount = 0;
-    gameState.lastErrorType = null;
-    gameState.errorTypeStreakCount = 0;
-    gameState.guidedRemaining = 0;
-    gameState.lessonGatePending = true;
-    gameState.lessonGateReason = 'first';
-    gameState.lessonGateSkillKey = getSkillKey(operation, level);
-
     gameState.isGameActive = true;
     gameState.isTrainingErrors = false;
     gameState.attemptsThisQuestion = 0;
@@ -1711,7 +1197,7 @@ try {
     })();
 
     appendSession({
-        schemaVersion: '1.1',
+        schemaVersion: '1.0',
         ts: Date.now(),
         operation: gameState.currentOperation,
         level: gameState.currentLevel,
@@ -1723,13 +1209,10 @@ try {
         xpDelta: xpGained,
         xpTotal: gameState.xp,
         durationSec,
-        avgAnswerMs: (gameState.answeredCount ? Math.round(gameState.totalAnswerMs / gameState.answeredCount) : null),
         student: {
-            id: getOrCreateStudentId(),
             name: String(gameState.studentProfile?.name || ''),
             turma: String(gameState.studentProfile?.turma || ''),
-            escola: String(gameState.studentProfile?.escola || ''),
-            ano: String(gameState.studentProfile?.ano || '')
+            escola: String(gameState.studentProfile?.escola || '')
         },
         multiplication: (gameState.currentOperation === 'multiplication' && gameState.multiplication) ? {
             mode: gameState.multiplication.mode || null,
@@ -2357,15 +1840,6 @@ function startGame(operation, level) {
     gameState.acertos = 0;
     gameState.erros = 0;
     gameState.sessionStartTs = Date.now();
-    gameState.totalAnswerMs = 0;
-    gameState.answeredCount = 0;
-    gameState.lastErrorType = null;
-    gameState.errorTypeStreakCount = 0;
-    gameState.guidedRemaining = 0;
-    gameState.lessonGatePending = true;
-    gameState.lessonGateReason = 'first';
-    gameState.lessonGateSkillKey = getSkillKey(operation, level);
-
     
     
     const __cfg = gameState.sessionConfig;
@@ -2504,27 +1978,10 @@ function nextQuestion() {
         endGame();
         return;
     }
-
-    // Gate: Modo Aprender (Sprint 1) e Reensino (Sprint 2)
-    if (gameState.lessonGatePending) {
-        const skillKey = gameState.lessonGateSkillKey || getSkillKey(gameState.currentOperation, gameState.currentLevel);
-        const reason = gameState.lessonGateReason || 'first';
-        const seen = loadLessonsSeen();
-        const shouldShow = (reason === 'reteach') || !seen[skillKey];
-        gameState.lessonGatePending = false;
-        if (shouldShow) {
-            showLesson(skillKey, reason, () => {
-                // retoma fluxo
-                nextQuestion();
-            });
-            return;
-        }
-    }
 gameState.questionNumber++;
     
     // 1. Gerar nova questão 
     const newQ = generateQuestion(gameState.currentOperation);
-    try{ newQ.startTs = Date.now(); }catch(_){ }
     gameState.currentQuestion = newQ;
     gameState.attemptsThisQuestion = 0;
     // 2. Atualizar UI
@@ -2553,8 +2010,8 @@ gameState.questionNumber++;
         btn.disabled = false;
     });
 
-    // 4. Leitura de Voz (Acessibilidade)
-    if (gameState.a11y?.ttsAuto) announceCurrentQuestion();
+    // 4. Leitura de Voz
+    announceCurrentQuestion();
 }
 
 
@@ -2568,7 +2025,6 @@ function saveError(question, userAnswer) {
         num1: question.num1 ?? null,
         num2: question.num2 ?? null,
         // para potenciação, num2 é o expoente
-        errorType: question.lastErrorType || null,
         timestamp: Date.now(),
         level: gameState.currentLevel,
         mode: gameState.isRapidMode ? 'rapido' : 'estudo',
@@ -2590,12 +2046,6 @@ function handleAnswer(selectedAnswer, selectedButton) {
     const isTraining = !!gameState.isTrainingErrors;
     const isCorrect = selectedAnswer === q.answer;
 
-    // tempo por questão
-    const _now = Date.now();
-    const _durMs = Math.max(0, _now - (Number(q.startTs)||_now));
-    gameState.totalAnswerMs += _durMs;
-    gameState.answeredCount += 1;
-
     // Trava clique duplo muito rápido
     gameState.answerLocked = true;
     setTimeout(() => { gameState.answerLocked = false; }, 220);
@@ -2612,9 +2062,7 @@ function handleAnswer(selectedAnswer, selectedButton) {
     }
 
     if (isCorrect) {
-        haptic(true);
         gameState.wrongStreak = 0;
-        if (gameState.guidedRemaining > 0) gameState.guidedRemaining -= 1;
         // Finaliza (correto)
         if (gameState.isRapidMode && !isTraining) stopTimer();
 
@@ -2674,15 +2122,6 @@ function handleAnswer(selectedAnswer, selectedButton) {
     // ERRO
     gameState.attemptsThisQuestion++;
 
-    // v19.2 — streak de erros + anti-frustração (turma fraca)
-    gameState.wrongStreak = (gameState.wrongStreak || 0) + 1;
-    if (gameState.wrongStreak >= 3) {
-        // próximas 2 questões mais fáceis (sem aviso)
-        gameState.forceEasy = Math.max(gameState.forceEasy || 0, 2);
-        gameState.wrongStreak = 0;
-    }
-
-
     // Salva erro (mesmo que depois acerte, isso ajuda a mapear as dificuldades)
     gameState.erros++;
     atualizarXP(-2);
@@ -2727,39 +2166,6 @@ function handleAnswer(selectedAnswer, selectedButton) {
     }, 1200);
 }
 
-
-
-function recordAbandonSession(){
-    try{
-        if (!gameState.isGameActive) return;
-        // Evita duplicar: só se respondeu pelo menos 1 questão
-        if ((gameState.acertos + gameState.erros) < 1) return;
-        const avgMs = gameState.answeredCount ? Math.round(gameState.totalAnswerMs / gameState.answeredCount) : null;
-        appendSession({
-            schemaVersion: '1.1',
-            ts: Date.now(),
-            operation: gameState.currentOperation,
-            level: gameState.currentLevel,
-            mode: gameState.isRapidMode ? 'rapido' : 'estudo',
-            score: gameState.score,
-            correct: gameState.acertos,
-            wrong: gameState.erros,
-            questions: (gameState.acertos + gameState.erros),
-            xpDelta: 0,
-            xpTotal: gameState.xp,
-            durationSec: Math.round((Date.now() - (gameState.sessionStartTs || Date.now()))/1000),
-            avgAnswerMs: avgMs,
-            abandoned: true,
-            student: {
-                id: getOrCreateStudentId(),
-                name: String(gameState.studentProfile?.name || ''),
-                turma: String(gameState.studentProfile?.turma || ''),
-                escola: String(gameState.studentProfile?.escola || ''),
-                ano: String(gameState.studentProfile?.ano || '')
-            }
-        });
-    }catch(_){}
-}
 
 function endGame() {
     gameState.isGameActive = false;
@@ -2890,7 +2296,7 @@ try {
     })();
 
     appendSession({
-        schemaVersion: '1.1',
+        schemaVersion: '1.0',
         ts: Date.now(),
         operation: gameState.currentOperation,
         level: gameState.currentLevel,
@@ -3421,20 +2827,6 @@ function getCampaignProgress(campaignId) {
     return st.progress[campaignId];
 }
 
-function hasAnyCampaignProgress(campaignId){
-    const st = loadCampaignState();
-    const p = st.progress?.[campaignId];
-    if (!p) return false;
-    const doneCount = p.done ? Object.keys(p.done).length : 0;
-    return (p.unit || 0) > 0 || (p.lesson || 0) > 0 || doneCount > 0;
-}
-function resetCampaignProgress(campaignId){
-    const st = loadCampaignState();
-    if (!st.progress) st.progress = {};
-    st.progress[campaignId] = { unit: 0, lesson: 0, done: {} };
-    saveCampaignState(st);
-}
-
 function setCampaignProgress(campaignId, prog) {
     const st = loadCampaignState();
     if (!st.progress) st.progress = {};
@@ -3760,31 +3152,8 @@ function initRedesignUI() {
         btnContinue.addEventListener('click', () => {
             const cid = getSelectedCampaignId();
             const cur = getCurrentLesson(cid);
-            if (!cur) { exibirTela('campaign-screen'); return; }
-
-            // v20: oferecer opção "Novo jogo" quando já existe progresso
-            const modal = document.getElementById('resume-modal');
-            const has = hasAnyCampaignProgress(cid);
-            if (modal && has){
-                modal.classList.remove('hidden');
-                const btnResume = document.getElementById('btn-resume-campaign');
-                const btnNew = document.getElementById('btn-new-campaign');
-                const btnClose = document.getElementById('btn-close-resume');
-
-                const close = ()=>{ modal.classList.add('hidden'); };
-
-                if (btnResume) btnResume.onclick = ()=>{ close(); startCampaignLesson(cid, cur.unitIndex, cur.lessonIndex); };
-                if (btnNew) btnNew.onclick = ()=>{ resetCampaignProgress(cid); close(); renderCampaignScreen(); updateHomeCampaignUI(); startCampaignLesson(cid, 0, 0); };
-                if (btnClose) btnClose.onclick = close;
-
-                // Esc fecha
-                const onKey = (e)=>{ if (e.key === 'Escape'){ close(); document.removeEventListener('keydown', onKey); } };
-                document.addEventListener('keydown', onKey);
-
-                return;
-            }
-
-            startCampaignLesson(cid, cur.unitIndex, cur.lessonIndex);
+            if (cur) startCampaignLesson(cid, cur.unitIndex, cur.lessonIndex);
+            else exibirTela('campaign-screen');
         });
     }
     if (btnOpenCampaign) btnOpenCampaign.addEventListener('click', () => { renderCampaignScreen(); exibirTela('campaign-screen'); });
@@ -3867,11 +3236,7 @@ document.addEventListener('DOMContentLoaded', () => {
     carregarErros();
     carregarRanking();
     loadTeacherPrefs();
-    gameState.a11y = loadA11yPrefs();
-    applyOneHandClass();
-
     initPWA(); 
-    document.addEventListener('visibilitychange', () => { if (document.hidden) recordAbandonSession(); });
     
     // 2. Anexa todos os listeners
     loadMultiplicationConfig();
@@ -3941,7 +3306,7 @@ attachEventListeners();
   // Extensões de estado (sem quebrar versões antigas)
   gameState.v17 = gameState.v17 || {
     hintLevel: 0,
-    answerMode: 'mcq', // v20: somente múltipla escolha (sem digitar)
+    answerMode: 'mcq', // 'mcq' | 'typed'
     forcedTypedCountdown: 0,
     wrongFastStreak: 0,
     questionStartTs: 0,
@@ -4171,16 +3536,27 @@ attachEventListeners();
   }
 
   function setAnswerMode(mode){
-    // v20: resposta sempre por múltipla escolha (sem digitar)
-    gameState.v17.answerMode = 'mcq';
-    if (typedArea) typedArea.classList.add('hidden');
-    if (btnToggleInput) btnToggleInput.classList.add('hidden');
-    document.querySelectorAll('.answer-option').forEach(b=>{ b.disabled = false; });
-}
-function maybeSetModeForQuestion(){
-    // v20: mantém mcq sempre
-    setAnswerMode('mcq');
-}
+    gameState.v17.answerMode = mode;
+    if (mode === 'typed'){
+      if (typedArea) typedArea.classList.remove('hidden');
+      if (btnToggleInput) btnToggleInput.textContent = '🔢 Opções';
+      // desabilita botões de alternativa
+      document.querySelectorAll('.answer-option').forEach(b=>{ b.disabled = true; });
+      if (typedInput) { typedInput.value=''; typedInput.focus(); }
+    } else {
+      if (typedArea) typedArea.classList.add('hidden');
+      if (btnToggleInput) btnToggleInput.textContent = '⌨️ Digitar';
+      document.querySelectorAll('.answer-option').forEach(b=>{ b.disabled = false; });
+    }
+  }
+
+  function maybeSetModeForQuestion(){
+    const base = isCampaignBase();
+    const pTyped = base ? 0.20 : 0.30;
+    let mode = (Math.random() < pTyped) ? 'typed' : 'mcq';
+    if (gameState.v17.forcedTypedCountdown > 0) mode = 'typed';
+    setAnswerMode(mode);
+  }
 
   function microcheckSpec(tag){
     // retorna {q, a, b, correct:'a'|'b'}

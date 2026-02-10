@@ -111,7 +111,7 @@
 
   function makeCsv(report){
     const rows = [];
-    rows.push(['schemaVersion','classId','studentCode','studentName','periodStart','periodEnd','questions','correct','wrong','accuracy','xpGained','xpTotal','durationSec','avgAnswerMs','abandoned'].join(','));
+    rows.push(['schemaVersion','classId','studentCode','studentName','periodStart','periodEnd','questions','correct','wrong','accuracy','xpGained','xpTotal','durationSec'].join(','));
     rows.push([
       report.schemaVersion,
       csvSafe(report.classId),
@@ -125,9 +125,7 @@
       report.summary.accuracy,
       report.summary.xpGained,
       report.summary.xpTotal,
-      report.summary.durationSec,
-      report.summary.avgAnswerMs ?? '',
-      report.summary.abandoned ?? 0
+      report.summary.durationSec
     ].join(','));
 
     rows.push('');
@@ -172,9 +170,6 @@
 
     const period = startEndFromPeriod(els.periodSelect.value || 'last7');
     const sessions = loadSessions().filter(s => Number(s?.ts) >= period.start && Number(s?.ts) <= period.end);
-    // Se não preencher código, tenta usar o ID automático salvo nas sessões
-    if (!identity.studentCode && sessions[0]?.student?.id) identity.studentCode = String(sessions[0].student.id);
-
     const errors = loadErrors().filter(e => Number(e?.timestamp) >= period.start && Number(e?.timestamp) <= period.end);
 
     const sum = {
@@ -182,9 +177,7 @@
       correct: 0,
       wrong: 0,
       xpGained: 0,
-      durationSec: 0,
-      abandoned: 0,
-      avgAnswerMs_sum: 0
+      durationSec: 0
     };
 
     const byOp = {};
@@ -241,9 +234,7 @@ const topMistakes = summarizeTop(errors, (e)=>{
         accuracy,
         xpGained: sum.xpGained,
         xpTotal: loadXp(),
-        durationSec: sum.durationSec,
-      avgAnswerMs: (sum.questions ? Math.round(sum.avgAnswerMs_sum / sum.questions) : null),
-      abandoned: sum.abandoned
+        durationSec: sum.durationSec
       },
       breakdown: {
         byOperation: Object.fromEntries(Object.entries(byOp).map(([op, b])=>{
@@ -261,7 +252,7 @@ const topMistakes = summarizeTop(errors, (e)=>{
     const lines = [];
     lines.push(`<div class="tiny muted">Gerado em: <strong>${escapeHtml(fmtDate(report.createdAt))}</strong></div>`);
     lines.push(`<div style="margin-top:8px;"><span class="pill">Turma</span> ${escapeHtml(report.classId || '-')}&nbsp;&nbsp;<span class="pill">Aluno</span> ${escapeHtml(report.studentCode || report.studentName || '-')}</div>`);
-    lines.push(`<div style="margin-top:8px;">Questões: <strong>${report.summary.questions}</strong> · Acertos: <strong>${report.summary.correct}</strong> · Erros: <strong>${report.summary.wrong}</strong> · Tempo médio: <strong>${report.summary.avgAnswerMs ? report.summary.avgAnswerMs+'ms' : '-'}</strong> · Abandono: <strong>${report.summary.abandoned || 0}</strong> · Precisão: <strong>${report.summary.accuracy}%</strong></div>`);
+    lines.push(`<div style="margin-top:8px;">Questões: <strong>${report.summary.questions}</strong> · Acertos: <strong>${report.summary.correct}</strong> · Erros: <strong>${report.summary.wrong}</strong> · Precisão: <strong>${report.summary.accuracy}%</strong></div>`);
     lines.push(`<div class="bar" style="margin-top:8px;"><div style="width:${report.summary.accuracy}%;"></div></div>`);
     lines.push(`<div class="tiny muted" style="margin-top:8px;">XP ganho no período: <strong>${report.summary.xpGained}</strong> · XP total: <strong>${report.summary.xpTotal}</strong> · Tempo: <strong>${report.summary.durationSec}s</strong></div>`);
 
