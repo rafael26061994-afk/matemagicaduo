@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Painel do Professor — Matemágica</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .grid2{display:grid;grid-template-columns:1fr;gap:10px;}
+    @media(min-width:860px){.grid2{grid-template-columns:1fr 1fr;}}
+    textarea, input, select{
+      padding:10px 12px;border-radius:14px;border:1px solid rgba(0,0,0,0.2);
+      font-size:1em;background: var(--cor-card-claro);
+    }
+    textarea{min-height:90px;resize:vertical;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
+    .table{width:100%;border-collapse:collapse;}
+    .table th,.table td{border-bottom:1px solid rgba(0,0,0,0.12);padding:10px;text-align:left;vertical-align:top;}
+    .table th{position:sticky;top:0;background: var(--cor-card-claro);}
+    .pill{display:inline-block;padding:4px 10px;border-radius:999px;background:rgba(0,0,0,0.08);font-weight:800;}
+    .muted{opacity:.75;}
+    #video-wrap{display:none;gap:10px;align-items:center;justify-content:center;flex-direction:column;margin-top:10px;}
+    video{width:min(520px,95%);border-radius:18px;border:1px solid rgba(0,0,0,0.15);}
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <header class="header">
+      <h1>👩‍🏫 Painel do Professor</h1>
+      <p class="muted">Importe relatórios por QR (rápido) ou colando o código. Tudo funciona <strong>offline</strong>.</p>
+      <div class="mm-row">
+        <a class="main-btn link-btn" href="index.html">⬅ Voltar ao app</a>
+        <a class="main-btn link-btn" href="relatorio.html">📄 Abrir relatório do aluno</a>
+      </div>
+    </header>
+
+    <div class="grid2">
+      <div class="info-card">
+        <h3>Importar relatório (MMR1)</h3>
+<div class="mm-row" style="margin-top:10px;flex-direction:column;align-items:stretch;gap:10px;">
+          <button id="btn-scan" class="main-btn" type="button" style="font-size:1.15em;padding:18px 16px;border-radius:18px;">📷 Escanear QR</button>
+          <button id="btn-paste" class="main-btn" type="button" style="font-size:1.05em;padding:16px 16px;border-radius:18px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.35);">⌨️ Colar código</button>
+
+          <div id="paste-wrap" style="display:none;margin-top:8px;">
+            <label class="tiny muted">Cole aqui o código do relatório (MMR1)</label>
+            <textarea id="inp-code" placeholder="Cole o código aqui..."></textarea>
+            <div class="mm-row" style="margin-top:10px;">
+              <button id="btn-import" class="main-btn" type="button">Importar</button>
+            </div>
+            <p class="tiny muted">Se o navegador não suportar câmera/QR, use “Colar código”.</p>
+          </div>
+
+          <details style="margin-top:4px;">
+            <summary class="tiny muted" style="cursor:pointer;">Mais</summary>
+            <div style="margin-top:10px;">
+              <button id="btn-clear" class="main-btn" type="button" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.35);">Limpar tudo</button>
+            </div>
+          </details>
+        </div>
+
+        <div id="video-wrap">
+
+          <video id="qr-video" autoplay playsinline></video>
+          <div class="mm-row">
+            <button id="btn-stop-scan" class="main-btn" type="button">Parar</button>
+          </div>
+          <p class="tiny muted">Dica: aponte para o QR na tela do aluno.</p>
+        </div>
+
+        <p class="tiny muted">Se o navegador não suportar câmera/QR, copie e cole o código.</p>
+      </div>
+
+      <div class="info-card">
+        <h3>Filtros e export</h3>
+
+        <div class="mm-row">
+          <label style="flex:1;min-width:220px;">Turma/Classe
+            <input id="filter-class" placeholder="Ex.: 6ºB" />
+          </label>
+          <label style="flex:1;min-width:220px;">Período
+            <select id="filter-period">
+              <option value="all">Tudo</option>
+              <option value="today">Hoje</option>
+              <option value="last7">Últimos 7 dias</option>
+              <option value="last30">Últimos 30 dias</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="mm-row" style="margin-top:10px;">
+          <button id="btn-export-json" class="main-btn" type="button">Exportar JSON</button>
+          <button id="btn-export-csv" class="main-btn" type="button">Exportar CSV</button>
+          <button id="btn-copy-whats" class="main-btn" type="button">Resumo p/ WhatsApp</button>
+        </div>
+
+        <div id="class-summary" class="info-card" style="margin-top:10px;">
+          <h3>Resumo da turma</h3>
+          <p class="muted">Importe relatórios para ver métricas.</p>
+        </div>
+
+        <div class="info-card" style="margin-top:10px;">
+          <h3>Intervenção pronta (2 passos)</h3>
+          <ol id="interv-list" style="margin:8px 0 0 18px;">
+            <li class="muted">Importe relatórios para sugerir intervenção.</li>
+          </ol>
+          <pre id="interv-rec" style="white-space:pre-wrap;margin-top:10px;padding:12px;border-radius:16px;background:rgba(0,0,0,0.04);border:1px solid rgba(0,0,0,0.08);font-size:0.95em;"></pre>
+          <div class="mm-row" style="margin-top:10px;">
+            <button id="btn-copy-rec" class="main-btn" type="button">Copiar recomendação (WhatsApp)</button>
+          </div>
+          <p class="tiny muted" style="margin-top:8px;">Objetivo: 1 missão por aluno hoje (sem pressa). Foque nas 3 fragilidades.</p>
+        </div>
+
+        <div id="intervention" class="info-card" style="margin-top:10px;">
+          <h3>Intervenção pronta (2 passos)</h3>
+          <p class="muted tiny">1) Veja a maior dificuldade · 2) Aplique uma ação curta (campanha/mission) + tarefa de casa simples.</p>
+          <div id="intervention-text" class="muted">Importe relatórios para gerar uma recomendação automática.</div>
+          <div class="mm-row" style="margin-top:10px;">
+            <button id="btn-copy-intervention" class="main-btn" type="button" disabled>Copiar recomendação</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="info-card">
+      <h3>Relatórios importados</h3>
+      <div class="tiny muted" id="count-text">0 relatórios.</div>
+      <div style="overflow:auto;max-height:55vh;margin-top:10px;">
+        <table class="table" id="tbl">
+          <thead>
+            <tr>
+              <th>Aluno</th>
+              <th>Turma</th>
+              <th>Período</th>
+              <th>Desempenho</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tbl-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="professor.js"></script>
+  <div id="vlibras-root"></div>
+  <script src="a11y.js"></script>
+</body>
+</html>
