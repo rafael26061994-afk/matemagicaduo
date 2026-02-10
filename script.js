@@ -1274,6 +1274,461 @@ function randomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+// --- v19.9 — BLUEPRINT + POOLS FIXOS (Base turma fraca) ---
+// Objetivo: ter (1) pool fixo de 50 por nível e (2) gerador por regras seguindo as proporções.
+// Observação: nível usa 'easy' | 'medium' | 'advanced' internamente; aceitamos 'hard' como sinônimo de 'advanced'.
+
+function normLevelKey(lvl){
+    if (lvl === 'hard') return 'advanced';
+    if (lvl === 'dificil') return 'advanced';
+    if (lvl === 'medio') return 'medium';
+    if (lvl === 'facil') return 'easy';
+    return (lvl === 'advanced' || lvl === 'medium' || lvl === 'easy') ? lvl : 'easy';
+}
+
+const PET_BLUEPRINT = {
+    add: {
+        easy:   { max: 20,  carryPct: 0.00, buckets: [
+            { key:'complete10', n:15 }, { key:'doubles', n:10 }, { key:'plus123', n:10 }, { key:'to20', n:10 }, { key:'mix', n:5 }
+        ]},
+        medium: { max: 100, carryPct: 0.35, buckets: [
+            { key:'plusTens', n:10 }, { key:'to100', n:8 }, { key:'comp', n:7 }, { key:'mixNoCarry', n:7 }, // 32 sem vai-um
+            { key:'carryEasy', n:8 }, { key:'carry2d', n:6 }, { key:'carryTensAdj', n:4 }                 // 18 com vai-um
+        ]},
+        advanced:{ max: 200, carryPct: 0.70, buckets: [
+            { key:'carry2d1d', n:10 }, { key:'carry2d2d', n:15 }, { key:'nearMark', n:6 }, { key:'compCarry', n:4 }, // 35
+            { key:'tens', n:6 }, { key:'to200', n:5 }, { key:'mixNoCarry', n:4 }                                      // 15
+        ]}
+    },
+    sub: {
+        easy:   { max: 20,  borrowPct: 0.00, buckets: [
+            { key:'minus123', n:12 }, { key:'to10', n:15 }, { key:'smallDiff', n:8 }, { key:'complete', n:10 }, { key:'mix', n:5 }
+        ]},
+        medium: { max: 100, borrowPct: 0.35, buckets: [
+            { key:'minusTens', n:10 }, { key:'minusUnits', n:8 }, { key:'from100', n:7 }, { key:'mixNoBorrow', n:7 }, // 32
+            { key:'borrow1d', n:8 }, { key:'borrow2d', n:8 }, { key:'nearMark', n:2 }                                  // 18
+        ]},
+        advanced:{ max: 200, borrowPct: 0.70, buckets: [
+            { key:'borrow2d1d', n:10 }, { key:'borrow2d2d', n:15 }, { key:'nearMark', n:6 }, { key:'comp', n:4 }, // 35
+            { key:'minusTens', n:6 }, { key:'from200', n:5 }, { key:'mixNoBorrow', n:4 }                              // 15
+        ]}
+    },
+    mult: {
+        easy:    { tabMin:0, tabMax:5, weights: {0:0.10,1:0.10,2:0.20,3:0.20,4:0.20,5:0.20} },
+        medium:  { tabMin:6, tabMax:10, weights: {10:0.12,9:0.20,8:0.20,7:0.16,6:0.16,'mix':0.16} },
+        advanced:{ tabMin:11, tabMax:20, weights: {11:0.12,12:0.12,13:0.10,14:0.10,15:0.08,16:0.08,17:0.08,18:0.08,19:0.08,20:0.08,'mix':0.08} }
+    }
+};
+
+// Estado dos pools fixos
+if (!gameState.pools) {
+    gameState.pools = {
+        cursor: { addition:{easy:0,medium:0,advanced:0}, subtraction:{easy:0,medium:0,advanced:0}, multiplication:{easy:0,medium:0,advanced:0} },
+        fixed:  { addition:{easy:[],medium:[],advanced:[]}, subtraction:{easy:[],medium:[],advanced:[]}, multiplication:{easy:[],medium:[],advanced:[]} }
+    };
+}
+
+function randChoice(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+// --- Geradores por bucket (adição) ---
+function genAdd(levelKey, bucketKey){
+    const cfg = PET_BLUEPRINT.add[levelKey];
+    const max = cfg.max;
+
+    let a=0,b=0;
+
+    const pick = (min,maxi)=>randomInt(min,maxi);
+
+    if (levelKey === 'easy'){
+        // tudo <=20, sem vai-um
+        if (bucketKey==='complete10'){
+            const au = pick(0,9);
+            const bu = 10-au;
+            a = au; b = bu;
+            if (Math.random()<0.4){ a = pick(0,9); b = 10-a; } // variação
+        } else if (bucketKey==='doubles'){
+            const x = pick(1,10);
+            a = x; b = (Math.random()<0.5)? x : Math.max(0, Math.min(20, x + (Math.random()<0.5?1:-1)));
+        } else if (bucketKey==='plus123'){
+            a = pick(0,20);
+            b = randChoice([1,2,3]);
+            if (a+b>20) a = 20-b;
+        } else if (bucketKey==='to20'){
+            const target = 20;
+            a = pick(0,20);
+            b = target - a;
+            if (b<0){ b = pick(0,20-a); }
+        } else { // mix
+            a = pick(0,20);
+            b = pick(0,20);
+            if (a+b>20){ a = pick(0,20); b = pick(0,20-a); }
+        }
+        // garante sem vai-um (unidades)
+        if ((a%10)+(b%10) >= 10){
+            // ajusta b pra evitar carry
+            const au=a%10;
+            b = Math.min(b, 9-au);
+        }
+        return [a,b];
+    }
+
+    // medium/advanced
+    const limit = max;
+    const makeNoCarry2d = ()=>{
+        for (let i=0;i<80;i++){
+            const at = pick(0, Math.floor(limit/10));
+            const bt = pick(0, Math.floor(limit/10));
+            const au = pick(0,9);
+            const bu = pick(0,9-au); // sem vai-um
+            a = at*10+au;
+            b = bt*10+bu;
+            if (a<=limit && b<=limit && a+b<=limit) return [a,b];
+        }
+        a=pick(0,limit); b=pick(0,limit-a); return [a,b];
+    };
+    const makeCarry = (twoDigitsB=true)=>{
+        for (let i=0;i<120;i++){
+            const at = pick(0, Math.floor(limit/10));
+            const bt = pick(0, Math.floor(limit/10));
+            const au = pick(0,9);
+            const bu = pick(Math.max(10-au,0),9); // força carry nas unidades
+            a = at*10+au;
+            if (twoDigitsB){
+                const btu = pick(0, Math.floor(limit/10));
+                b = btu*10 + bu;
+            } else {
+                b = bu; // 1 dígito
+            }
+            if (a<=limit && b<=limit && a+b<=limit) return [a,b];
+        }
+        // fallback
+        return makeNoCarry2d();
+    };
+
+    if (levelKey==='medium'){
+        if (bucketKey==='plusTens'){
+            a = pick(0,100);
+            b = randChoice([10,20,30,40]);
+            if (a+b>100) a = 100-b;
+            return [a,b];
+        } else if (bucketKey==='to100'){
+            a = pick(0,100);
+            b = 100-a;
+            if (b<0){ b = pick(0,100-a); }
+            return [a,b];
+        } else if (bucketKey==='comp'){
+            // compensação: 49+6 => 50+5
+            a = randChoice([29,39,49,59,69,79,89,99]);
+            b = pick(1,9);
+            if (a+b>100){ a -= 10; }
+            return [a,b];
+        } else if (bucketKey==='mixNoCarry'){
+            return makeNoCarry2d();
+        } else if (bucketKey==='carryEasy'){
+            // 2d + 1d com carry
+            return makeCarry(false);
+        } else if (bucketKey==='carry2d'){
+            return makeCarry(true);
+        } else if (bucketKey==='carryTensAdj'){
+            a = randChoice([59,69,79,89,99]);
+            b = randChoice([11,12,13,14,15,16,17,18,19]);
+            if (a+b>100){ a -= 10; }
+            // garante carry
+            if ((a%10)+(b%10) < 10) b += (10-((a%10)+(b%10)));
+            if (a+b>100) b -= 10;
+            return [a,b];
+        }
+        return makeNoCarry2d();
+    }
+
+    // advanced
+    if (bucketKey==='carry2d1d'){
+        return makeCarry(false);
+    } else if (bucketKey==='carry2d2d'){
+        return makeCarry(true);
+    } else if (bucketKey==='nearMark'){
+        a = randChoice([98,99,149,150,199]);
+        b = pick(1,9);
+        if (a+b>200) a -= 10;
+        // força carry em parte
+        return [a,b];
+    } else if (bucketKey==='compCarry'){
+        a = randChoice([79,89,99,109,119,129,139,149,159,169,179,189,199]);
+        b = randChoice([12,13,14,15,16,17,18,19]);
+        if (a+b>200) a -= 10;
+        if ((a%10)+(b%10) < 10) b += (10-((a%10)+(b%10)));
+        if (a+b>200) b -= 10;
+        return [a,b];
+    } else if (bucketKey==='tens'){
+        a = randChoice([100,110,120,130,140,150,160,170,180,190]);
+        b = randChoice([10,20,30,40,50]);
+        if (a+b>200) b = 200-a;
+        return [a,b];
+    } else if (bucketKey==='to200'){
+        a = pick(0,200);
+        b = 200-a;
+        if (b<0) b = pick(0,200-a);
+        return [a,b];
+    } else if (bucketKey==='mixNoCarry'){
+        return makeNoCarry2d();
+    }
+    return makeCarry(true);
+}
+
+// --- Geradores por bucket (subtração) ---
+function genSub(levelKey, bucketKey){
+    const cfg = PET_BLUEPRINT.sub[levelKey];
+    const max = cfg.max;
+
+    let a=0,b=0;
+    const pick=(min,maxi)=>randomInt(min,maxi);
+
+    if (levelKey==='easy'){
+        if (bucketKey==='minus123'){
+            a = pick(0,20);
+            b = randChoice([1,2,3]);
+            if (a-b<0) a = b;
+        } else if (bucketKey==='to10'){
+            a = pick(0,20);
+            b = pick(0,10);
+            if (a-b<0) a = b;
+        } else if (bucketKey==='smallDiff'){
+            b = pick(0,20);
+            a = Math.min(20, b + pick(0,3));
+        } else if (bucketKey==='complete'){
+            a = 20;
+            b = pick(0,20);
+        } else { // mix
+            a = pick(0,20);
+            b = pick(0,a);
+        }
+        // sem empréstimo
+        if ((a%10) < (b%10)){
+            b = (Math.floor(b/10)*10) + pick(0, a%10);
+        }
+        return [a,b];
+    }
+
+    const limit=max;
+    const makeNoBorrow2d=()=>{
+        for (let i=0;i<120;i++){
+            const at = pick(0, Math.floor(limit/10));
+            const bt = pick(0, at);
+            const au = pick(0,9);
+            const bu = pick(0, au); // garante sem empréstimo
+            a = at*10+au;
+            b = bt*10+bu;
+            if (a<=limit && b<=a) return [a,b];
+        }
+        a=pick(0,limit); b=pick(0,a); return [a,b];
+    };
+    const makeBorrow=(twoDigitsB=true)=>{
+        for (let i=0;i<160;i++){
+            const at = pick(1, Math.floor(limit/10)); // precisa ter dezena pra emprestar
+            const bt = pick(0, at);
+            const au = pick(0,9);
+            const bu = pick(au+1,9); // força empréstimo
+            a = at*10 + au;
+            if (twoDigitsB){
+                const btu = pick(0, bt);
+                b = btu*10 + bu;
+            } else {
+                b = bu;
+            }
+            if (a<=limit && b<=a) return [a,b];
+        }
+        return makeNoBorrow2d();
+    };
+
+    if (levelKey==='medium'){
+        if (bucketKey==='minusTens'){
+            a = randChoice([40,50,60,70,80,90,100]);
+            b = randChoice([10,20,30,40,50]);
+            if (b>a) b = 10;
+            return [a,b];
+        } else if (bucketKey==='minusUnits'){
+            a = pick(10,100);
+            b = pick(1,9);
+            if (a-b<0) a = b+10;
+            return [a,b];
+        } else if (bucketKey==='from100'){
+            a = 100;
+            b = pick(0,100);
+            return [a,b];
+        } else if (bucketKey==='mixNoBorrow'){
+            return makeNoBorrow2d();
+        } else if (bucketKey==='borrow1d'){
+            return makeBorrow(false);
+        } else if (bucketKey==='borrow2d'){
+            return makeBorrow(true);
+        } else if (bucketKey==='nearMark'){
+            a = randChoice([70,80,90,100]);
+            b = randChoice([48,59,67,78,89]);
+            if (b>a) b = a-1;
+            // garante empréstimo quando possível
+            if ((a%10) >= (b%10)) b = (Math.floor(b/10)*10) + ((a%10)+1);
+            if (b>a) b = a-1;
+            return [a,b];
+        }
+        return makeNoBorrow2d();
+    }
+
+    // advanced
+    if (bucketKey==='borrow2d1d'){
+        return makeBorrow(false);
+    } else if (bucketKey==='borrow2d2d'){
+        return makeBorrow(true);
+    } else if (bucketKey==='nearMark'){
+        a = randChoice([100,150,200]);
+        b = randChoice([67,98,136,149,187]);
+        if (b>a) b = a-1;
+        if ((a%10) >= (b%10)) b = (Math.floor(b/10)*10) + ((a%10)+1);
+        if (b>a) b = a-1;
+        return [a,b];
+    } else if (bucketKey==='comp'){
+        // compensação: 82-19 = 82-20+1 (mas aqui só gera o par)
+        a = randChoice([82,92,102,112,122,132,142,152,162,172,182,192]);
+        b = randChoice([19,29,39,49,59,69,79,89,99]);
+        if (b>a) b = a-1;
+        // força empréstimo
+        if ((a%10) >= (b%10)) b = (Math.floor(b/10)*10) + ((a%10)+1);
+        if (b>a) b = a-1;
+        return [a,b];
+    } else if (bucketKey==='minusTens'){
+        a = randChoice([120,130,140,150,160,170,180,190,200]);
+        b = randChoice([10,20,30,40,50,60,70,80,90]);
+        if (b>a) b = 10;
+        return [a,b];
+    } else if (bucketKey==='from200'){
+        a = 200;
+        b = pick(0,200);
+        return [a,b];
+    } else if (bucketKey==='mixNoBorrow'){
+        return makeNoBorrow2d();
+    }
+    return makeBorrow(true);
+}
+
+// --- Multiplicação: gerador por pesos (nível) ---
+function genMultPair(levelKey){
+    const cfg = PET_BLUEPRINT.mult[levelKey];
+    // define multiplicador dentro da faixa atual (config do app)
+    const multMin = Number.isInteger(gameState.multiplication?.multMin) ? gameState.multiplication.multMin : 0;
+    const multMax = Number.isInteger(gameState.multiplication?.multMax) ? gameState.multiplication.multMax : 20;
+
+    const pickM = ()=>randomInt(multMin, multMax);
+
+    if (levelKey === 'easy'){
+        // Escolhe tabuada 0-5 com pesos
+        const r=Math.random();
+        let acc=0;
+        const order=[0,1,2,3,4,5];
+        for (const t of order){
+            acc += (cfg.weights[t]||0);
+            if (r<=acc) return [t, pickM()];
+        }
+        return [randChoice(order), pickM()];
+    }
+
+    const r=Math.random();
+    let acc=0;
+    const order = (levelKey==='medium') ? [10,9,8,7,6,'mix'] : [11,12,13,14,15,16,17,18,19,20,'mix'];
+    for (const k of order){
+        acc += (cfg.weights[k]||0);
+        if (r<=acc){
+            if (k==='mix'){
+                // pega qualquer tabuada no range
+                return [randomInt(cfg.tabMin, cfg.tabMax), pickM()];
+            }
+            return [k, pickM()];
+        }
+    }
+    return [randomInt(cfg.tabMin,cfg.tabMax), pickM()];
+}
+
+// --- Construção de pools fixos (50) a partir do blueprint ---
+function buildFixedPoolAdd(levelKey){
+    const buckets = PET_BLUEPRINT.add[levelKey].buckets;
+    const out=[];
+    buckets.forEach(b=>{
+        for (let i=0;i<b.n;i++){
+            const [a,bv]=genAdd(levelKey,b.key);
+            out.push([a,bv]);
+        }
+    });
+    return shuffleArray(out).slice(0,50);
+}
+function buildFixedPoolSub(levelKey){
+    const buckets = PET_BLUEPRINT.sub[levelKey].buckets;
+    const out=[];
+    buckets.forEach(b=>{
+        for (let i=0;i<b.n;i++){
+            const [a,bv]=genSub(levelKey,b.key);
+            out.push([a,bv]);
+        }
+    });
+    return shuffleArray(out).slice(0,50);
+}
+function buildFixedPoolMult(levelKey){
+    const out=[];
+    // 50 pares seguindo pesos (com mistura)
+    for (let i=0;i<50;i++){
+        out.push(genMultPair(levelKey));
+    }
+    return shuffleArray(out);
+}
+
+function ensureFixedPools(){
+    ['easy','medium','advanced'].forEach(lvl=>{
+        if (!Array.isArray(gameState.pools.fixed.addition[lvl]) || gameState.pools.fixed.addition[lvl].length!==50){
+            gameState.pools.fixed.addition[lvl]=buildFixedPoolAdd(lvl);
+            gameState.pools.cursor.addition[lvl]=0;
+        }
+        if (!Array.isArray(gameState.pools.fixed.subtraction[lvl]) || gameState.pools.fixed.subtraction[lvl].length!==50){
+            gameState.pools.fixed.subtraction[lvl]=buildFixedPoolSub(lvl);
+            gameState.pools.cursor.subtraction[lvl]=0;
+        }
+        if (!Array.isArray(gameState.pools.fixed.multiplication[lvl]) || gameState.pools.fixed.multiplication[lvl].length!==50){
+            gameState.pools.fixed.multiplication[lvl]=buildFixedPoolMult(lvl);
+            gameState.pools.cursor.multiplication[lvl]=0;
+        }
+    });
+}
+
+function nextFromFixedPool(opKey, levelKey){
+    ensureFixedPools();
+    const lvl = normLevelKey(levelKey);
+    const pool = gameState.pools.fixed[opKey]?.[lvl] || [];
+    let cur = gameState.pools.cursor[opKey]?.[lvl] || 0;
+    if (cur >= pool.length) return null;
+    const item = pool[cur];
+    gameState.pools.cursor[opKey][lvl] = cur + 1;
+    return item;
+}
+
+function maybeRebuildFixedPool(opKey, levelKey){
+    const lvl = normLevelKey(levelKey);
+    ensureFixedPools();
+    const cur = gameState.pools.cursor[opKey][lvl];
+    if (cur >= 50){
+        // recompõe novo pool para evitar decorar
+        if (opKey==='addition') gameState.pools.fixed.addition[lvl]=buildFixedPoolAdd(lvl);
+        if (opKey==='subtraction') gameState.pools.fixed.subtraction[lvl]=buildFixedPoolSub(lvl);
+        if (opKey==='multiplication') gameState.pools.fixed.multiplication[lvl]=buildFixedPoolMult(lvl);
+        gameState.pools.cursor[opKey][lvl]=0;
+    }
+}
+
+function pickBucketKey(buckets){
+    const total = buckets.reduce((s,b)=>s+(b.n||0),0);
+    let r = Math.random()*total;
+    for (const b of buckets){
+        r -= (b.n||0);
+        if (r<=0) return b.key;
+    }
+    return buckets[0]?.key || 'mix';
+}
+
 
 function toSuperscript(num) {
     // Converte número inteiro para caracteres sobrescritos Unicode (ex.: 3 -> ³, 12 -> ¹²)
@@ -1312,7 +1767,7 @@ function normalizeLevelKey(level) {
     return l;
 }
 
-nível → faixa de tabuadas (Multiplicação)
+// nível → faixa de tabuadas (Multiplicação)
 function getTabuadaRangeByLevel(level) {
     level = normalizeLevelKey(level);
 switch (level) {
@@ -1821,108 +2276,89 @@ function generateQuestion(operation) {
 
     switch (operation) {
         case 'addition':
-    // v19.1 — Base seguro (turma fraca): até 20 com padrão B (misto)
-    if (isCampaignBase() && (gameState.currentLevel === 'easy' || gameState.currentLevel === 'medium')) {
-        const rampEasy = (gameState.questionNumber <= 5) || (gameState.forceEasy > 0);
-        const wantCarry = (!rampEasy) && (Math.random() < 0.55); // padrão B: parte com vai-um
-        let a,b,sum;
-        // força <=20
-        for (let tries=0; tries<50; tries++){
-            if (wantCarry){
-                // soma das unidades >=10
-                const au = randomInt(0,9);
-                const bu = randomInt(Math.max(10-au,0),9);
-                const at = randomInt(0,2);
-                const bt = randomInt(0,2);
-                a = at*10 + au;
-                b = bt*10 + bu;
-            } else {
-                a = randomInt(0,20);
-                b = randomInt(0,20);
+            {
+                const lvl = normLevelKey(gameState.currentLevel);
+                const useFixed = Math.random() < 0.70;
+                let pair = null;
+                if (useFixed) pair = nextFromFixedPool('addition', lvl);
+                if (!pair) {
+                    const key = pickBucketKey(PET_BLUEPRINT.add[lvl].buckets);
+                    pair = genAdd(lvl, key);
+                }
+                num1 = pair[0];
+                num2 = pair[1];
+                answer = num1 + num2;
+                questionString = `${num1} + ${num2}`;
+                questionSpeak = `${num1} mais ${num2}`;
+                maybeRebuildFixedPool('addition', lvl);
             }
-            sum = a + b;
-            if (sum <= 20) break;
-        }
-        num1 = a; num2 = b;
-        answer = num1 + num2;
-        questionString = `${num1} + ${num2}`;
-        questionSpeak = `${num1} mais ${num2}`;
-        if (gameState.forceEasy > 0) gameState.forceEasy--;
-        break;
-    }
-
-    // padrão original (outros modos)
-    num1 = randomInt(10 * diffFactor, 50 * diffFactor); 
-    num2 = randomInt(5 * diffFactor, 25 * diffFactor);
-    answer = num1 + num2;
-    questionString = `${num1} + ${num2}`;
-    questionSpeak = `${num1} mais ${num2}`;
-    break;
-        case 'subtraction':
-    // v19.1 — Base seguro (turma fraca): até 20 com padrão B (misto, com empréstimo em parte)
-    if (isCampaignBase() && (gameState.currentLevel === 'easy' || gameState.currentLevel === 'medium')) {
-        const rampEasy = (gameState.questionNumber <= 5) || (gameState.forceEasy > 0);
-        const wantBorrow = (!rampEasy) && (Math.random() < 0.55); // padrão B: parte com empréstimo
-        let a,b;
-        for (let tries=0; tries<80; tries++){
-            if (wantBorrow){
-                // unidades de a < unidades de b
-                const au = randomInt(0,8);
-                const bu = randomInt(au+1,9);
-                const at = randomInt(1,2); // garante que tem dezena para emprestar
-                const bt = randomInt(0,at); 
-                a = at*10 + au;
-                b = bt*10 + bu;
-                if (a >= b && a <= 20) break;
-            } else {
-                a = randomInt(0,20);
-                b = randomInt(0,a);
-                break;
+            break;
+case 'subtraction':
+            {
+                const lvl = normLevelKey(gameState.currentLevel);
+                const useFixed = Math.random() < 0.70;
+                let pair = null;
+                if (useFixed) pair = nextFromFixedPool('subtraction', lvl);
+                if (!pair) {
+                    const key = pickBucketKey(PET_BLUEPRINT.sub[lvl].buckets);
+                    pair = genSub(lvl, key);
+                }
+                num1 = pair[0];
+                num2 = pair[1];
+                answer = num1 - num2;
+                questionString = `${num1} - ${num2}`;
+                questionSpeak = `${num1} menos ${num2}`;
+                maybeRebuildFixedPool('subtraction', lvl);
             }
-        }
-        num1 = a; num2 = b;
-        answer = num1 - num2;
-        questionString = `${num1} − ${num2}`;
-        questionSpeak = `${num1} menos ${num2}`;
-        if (gameState.forceEasy > 0) gameState.forceEasy--;
-        break;
-    }
+            break;
+case 'multiplication':
+            {
+                const lvl = normLevelKey(gameState.currentLevel);
+                // garante faixa de tabuadas por nível (também no modo escolher tabuada)
+                const range = PET_BLUEPRINT.mult[lvl];
 
-    // padrão original (outros modos)
-    num1 = randomInt(20 * diffFactor, 80 * diffFactor);
-    num2 = randomInt(5 * diffFactor, num1 - (10 * diffFactor));
-    answer = num1 - num2;
-    questionString = `${num1} − ${num2}`;
-    questionSpeak = `${num1} menos ${num2}`;
-    break;
-        case 'multiplication':
-            // Tabuada — modo direto (uma tabuada) ou trilha (todas as contas do nível)
-            if (gameState.multiplication && (gameState.multiplication.mode === 'direct' || gameState.multiplication.mode === 'trail')) {
-                if (gameState.multiplication.mode === 'trail') {
-                    const pair = getNextTrailPair(); // [tabuada, multiplicador]
-                    num1 = pair[0];
-                    num2 = pair[1];
-                    // mantém a tabuada atual para relatórios/feedback
-                    gameState.multiplication.tabuada = num1;
-                } else {
+                if (gameState.multiplication) {
+                    // Atualiza faixa de trilha automaticamente
+                    gameState.multiplication.trailMin = range.tabMin;
+                    gameState.multiplication.trailMax = range.tabMax;
+
+                    // Se estiver no modo direto e a tabuada estiver fora da faixa, corrige
+                    if (gameState.multiplication.mode === 'direct') {
+                        let t = Number.isInteger(gameState.multiplication.tabuada) ? gameState.multiplication.tabuada : range.tabMin;
+                        if (t < range.tabMin) t = range.tabMin;
+                        if (t > range.tabMax) t = range.tabMax;
+                        gameState.multiplication.tabuada = t;
+                    }
+                }
+
+                if (gameState.multiplication && gameState.multiplication.mode === 'direct') {
                     const t = gameState.multiplication.tabuada;
-                    const m = getNextRoundMultiplier(); // multiplicadores do nível (ordem embaralhada)
+                    const m = getNextRoundMultiplier();
                     num1 = t;
                     num2 = m;
+                } else {
+                    // Trilha: 70% pool fixo (50) + 30% gerador por regras (anti-decor)
+                    const useFixed = Math.random() < 0.70;
+                    let pair = null;
+                    if (useFixed) pair = nextFromFixedPool('multiplication', lvl);
+                    if (!pair) pair = genMultPair(lvl);
+
+                    // garante tabuada na faixa
+                    if (pair[0] < range.tabMin || pair[0] > range.tabMax) pair[0] = randomInt(range.tabMin, range.tabMax);
+
+                    num1 = pair[0];
+                    num2 = pair[1];
+
+                    if (gameState.multiplication) gameState.multiplication.tabuada = num1;
+                    maybeRebuildFixedPool('multiplication', lvl);
                 }
-                answer = num1 * num2;
-                questionString = `${num1} x ${num2}`;
-                questionSpeak = `${num1} vezes ${num2}`;
-            } else {
-                // (modo livre antigo) Tabuadas mais altas no nível avançado
-                num1 = randomInt(2, diffFactor < 3 ? 12 : 25);
-                num2 = randomInt(2, diffFactor < 3 ? 10 : 15);
+
                 answer = num1 * num2;
                 questionString = `${num1} x ${num2}`;
                 questionSpeak = `${num1} vezes ${num2}`;
             }
             break;
-        case 'division':
+case 'division':
             let divisor = randomInt(2, diffFactor < 3 ? 8 : 12);
             let quotient = randomInt(2, diffFactor < 3 ? 10 : 20);
             num1 = divisor * quotient;
