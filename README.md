@@ -1,4 +1,4 @@
-# Matemágica (v19.1) — PWA offline-first (GitHub Pages)
+# Matemágica (v20.0) — PWA offline-first (GitHub Pages)
 
 Projeto educacional (EF II 6º–9º) com gamificação estilo “campanha”, missões diárias de 5 minutos e acessibilidade incremental.
 
@@ -34,9 +34,9 @@ Opções (use na ordem):
    - Application → Service Workers → “Unregister”
    - Application → Clear storage → “Clear site data”
 
-Observação: esta versão usa `CACHE_NAME = matemagica-duo-v19.1` em `sw.js`.
+Observação: esta versão usa `CACHE_NAME = matemagica-duo-v20.0.2` em `sw.js`.
 
-## Acessibilidade (v19)
+## Acessibilidade (v20)
 
 - Foco visível forte (CSS)
 - Atalhos: 1/2/3/4 para alternativas, Enter confirma, Esc fecha modal (quando aplicável)
