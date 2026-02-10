@@ -1,6 +1,6 @@
 /* Matemágica Duo - Service Worker (Offline) */
 // Incrementar sempre que houver mudanças para forçar atualização do cache
-const CACHE_NAME = 'matemagica-duo-v19.7';
+const CACHE_NAME = 'matemagica-duo-v19.8';
 const ASSETS = [
   '.',
   './index.html',

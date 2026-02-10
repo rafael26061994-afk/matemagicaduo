@@ -1300,9 +1300,22 @@ function rangeInclusive(min, max) {
 
 
 
-// Mapeia nível → faixa de tabuadas (Multiplicação)
+// Mapeia 
+// Normaliza nomes de nível vindos da UI/estado (ex.: 'hard' -> 'advanced')
+function normalizeLevelKey(level) {
+    if (!level) return 'medium';
+    const l = String(level).toLowerCase();
+    if (l === 'hard' || l === 'difficult' || l === 'difícil' || l === 'dificil') return 'advanced';
+    if (l === 'easy' || l === 'facil' || l === 'fácil') return 'easy';
+    if (l === 'medium' || l === 'medio' || l === 'médio') return 'medium';
+    if (l === 'advanced') return 'advanced';
+    return l;
+}
+
+nível → faixa de tabuadas (Multiplicação)
 function getTabuadaRangeByLevel(level) {
-    switch (level) {
+    level = normalizeLevelKey(level);
+switch (level) {
         case 'easy':
             // Fácil: tabuadas 0–5, multiplicadores 0–10
             return { min: 0, max: 5, multMin: 0, multMax: 10, label: 'Fácil (0–5 | ×0–10)' };
@@ -1766,7 +1779,7 @@ function buildAddSubPool(operation, level, size = 50) {
 
 function ensureAddSubPool(operation, level) {
     if (!gameState.addSubPools) return;
-    const lvl = (level === 'easy' || level === 'medium' || level === 'advanced') ? level : 'medium';
+    const lvl = (normalizeLevelKey(level) === 'easy' || normalizeLevelKey(level) === 'medium' || normalizeLevelKey(level) === 'advanced') ? normalizeLevelKey(level) : 'medium';
     const cur = gameState.addSubPools[operation] && gameState.addSubPools[operation][lvl];
     const idx = gameState.addSubPools.idx && gameState.addSubPools.idx[operation] ? gameState.addSubPools.idx[operation][lvl] : 0;
     if (!cur || cur.length !== gameState.addSubPools.size || idx >= cur.length) {
@@ -1777,7 +1790,7 @@ function ensureAddSubPool(operation, level) {
 
 function nextFromAddSubPool(operation, level) {
     if (!gameState.addSubPools) return null;
-    const lvl = (level === 'easy' || level === 'medium' || level === 'advanced') ? level : 'medium';
+    const lvl = (normalizeLevelKey(level) === 'easy' || normalizeLevelKey(level) === 'medium' || normalizeLevelKey(level) === 'advanced') ? normalizeLevelKey(level) : 'medium';
     ensureAddSubPool(operation, lvl);
     const arr = gameState.addSubPools[operation][lvl];
     const i = gameState.addSubPools.idx[operation][lvl] || 0;
