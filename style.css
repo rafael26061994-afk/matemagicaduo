@@ -72,16 +72,18 @@ font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetic
    ========================================================================= */
 
 .screen {
-    background-color: var(--cor-card-claro);
-    padding: 30px;
-    border-radius: 12px;
-    box-shadow: var(--sombra-card);
-    transition: opacity 0.3s ease-in-out;
-    display: none; /* Inicia todas ocultas */
+    /* telas em tela cheia (evita “página dividida”) */
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    box-shadow: none;
+    transition: opacity 0.2s ease-in-out;
+    display: none; /* inicia ocultas */
 }
 
 .screen.active {
-    display: block; /* Apenas a tela ativa é exibida */
+    display: block;
+    min-height: 100vh;
 }
 
 /* =========================================================================
@@ -1687,3 +1689,13 @@ body.ui-pc .answer-option{
 
 /* Melhor clique/touch */
 button, .main-btn, .level-btn, .op-btn, .tool-btn, .mm-btn{touch-action: manipulation;}
+
+
+/* Fullscreen selectors */
+#level-selection-screen .level-selection{display:grid; gap:14px; padding:16px;}
+#level-selection-screen .level-btn{width:100%; font-size:18px; padding:18px;}
+
+.mm-modal{width:100%; max-width:none; border-radius:0;}
+.mm-modal-header h2{font-size:26px;}
+.mm-grid{grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px;}
+.mm-grid-btn{font-size:20px; padding:18px 0;}

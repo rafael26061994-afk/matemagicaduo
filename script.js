@@ -2195,20 +2195,33 @@ function ensureMultiplicationModal() {
             b.className = 'mm-grid-btn';
             b.textContent = String(i);
             b.addEventListener('click', () => {
+                // 🔒 Modo direto (Escolher tabuada) é estrito:
+                // - fixa a tabuada escolhida
+                // - usa multiplicadores 1–10
+                // - força o nível coerente com a tabuada (evita “vazar” para 6–10/11–20)
+                const levelForTabuada = (n) => (n <= 5 ? 'easy' : (n <= 10 ? 'medium' : 'advanced'));
+                const lvl = levelForTabuada(i);
+
                 gameState.multiplication.mode = 'direct';
                 gameState.multiplication.tabuada = i;
-                // modo 'Escolher tabuada': somente esta tabuada, multiplicadores 1–10
+                gameState.multiplication.pendingLevel = lvl;
+                gameState.currentLevel = lvl;
+
+                // multiplicadores fixos 1–10
                 gameState.multiplication.multMin = 1;
                 gameState.multiplication.multMax = 10;
                 gameState.multiplication.roundMultipliers = null;
                 gameState.multiplication.roundPos = 0;
-                // persiste a faixa atual também
-                gameState.multiplication.trailMin = r.min;
-                gameState.multiplication.trailMax = r.max;
-                gameState.multiplication.trailRangeKey = `${r.min}-${r.max}|${r.multMin}-${r.multMax}`;
-                                saveMultiplicationConfig();
+
+                // faixa de exibição coerente com o nível calculado
+                const rr = getTabuadaRangeByLevel(lvl);
+                gameState.multiplication.trailMin = rr.min;
+                gameState.multiplication.trailMax = rr.max;
+                gameState.multiplication.trailRangeKey = `${rr.min}-${rr.max}|1-10`;
+
+                saveMultiplicationConfig();
                 close();
-                startGame('multiplication', gameState.multiplication.pendingLevel || gameState.currentLevel || 'medium');
+                startGame('multiplication', lvl);
             });
             grid.appendChild(b);
         }
@@ -2223,23 +2236,35 @@ function ensureMultiplicationModal() {
         if (e.target === overlay) close();
     });
 
-    // Botões principais
-    overlay.querySelector('[data-mm="trail"]').addEventListener('click', () => {
-        const r = getCurrentRange();
-        gameState.multiplication.mode = 'trail';
-        // define a faixa do nível e cria ordem aleatória só dentro dela
-        // prepara a trilha com TODAS as contas da faixa (sem repetir até completar)
-        ensureTrailPairs(r.min, r.max, r.multMin, r.multMax);
-        saveMultiplicationConfig();
-        close();
-        startGame('multiplication', gameState.multiplication.pendingLevel || gameState.currentLevel || 'medium');
+
+    // Delegação de clique (mais robusto em touch/camadas)
+    overlay.addEventListener('click', (e) => {
+        const btn = e.target && e.target.closest ? e.target.closest('[data-mm]') : null;
+        if (!btn) return;
+        const action = btn.getAttribute('data-mm');
+        if (action === 'trail') {
+            e.preventDefault();
+            e.stopPropagation();
+            const r = getCurrentRange();
+            gameState.multiplication.mode = 'trail';
+            ensureTrailPairs(r.min, r.max, r.multMin, r.multMax);
+            saveMultiplicationConfig();
+            close();
+            startGame('multiplication', gameState.multiplication.pendingLevel || gameState.currentLevel || 'medium');
+        }
+        if (action === 'direct') {
+            e.preventDefault();
+            e.stopPropagation();
+            const directBox = overlay.querySelector('.mm-direct');
+            if (directBox) directBox.classList.remove('hidden');
+            renderRangeTexts();
+            renderTabuadaGrid();
+        }
     });
 
-    overlay.querySelector('[data-mm="direct"]').addEventListener('click', () => {
-        overlay.querySelector('.mm-direct').classList.remove('hidden');
-        renderRangeTexts();
-        renderTabuadaGrid();
-    });
+    // Botões principais
+    /* listener moved to delegated handler */
+    /* listener moved to delegated handler */
 }
 
 function openMultiplicationConfig(level) {
@@ -2625,11 +2650,7 @@ if (operation === 'multiplication' && gameState.multiplication && (gameState.mul
         gameState.multiplication.multMax = 10;
         gameState.multiplication.trailRangeKey = `${r.min}-${r.max}|1-10`;
 
-        // Garante tabuada válida dentro da faixa do nível (a grade já limita, mas isso blinda)
-        if (!Number.isInteger(gameState.multiplication.tabuada) || gameState.multiplication.tabuada < r.min || gameState.multiplication.tabuada > r.max) {
-            gameState.multiplication.tabuada = r.min;
-        }
-
+        
         // Direto: embaralha 1–10 e percorre sem repetir até completar
         prepareRoundMultipliersForCurrentLevel();
 
