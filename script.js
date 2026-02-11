@@ -2246,14 +2246,11 @@ function openMultiplicationConfig(level) {
     ensureMultiplicationModal();
     gameState.multiplication.pendingLevel = level;
 
-    // Ajusta a faixa de tabuadas conforme o nível selecionado
+    // Ajusta a faixa do nível apenas para exibição (não aplica na config ainda)
     const r = getTabuadaRangeByLevel(level);
     gameState.multiplication.trailMin = r.min;
     gameState.multiplication.trailMax = r.max;
-    gameState.multiplication.trailRangeKey = `${r.min}-${r.max}|${r.multMin}-${r.multMax}`;
-    gameState.multiplication.multMin = r.multMin;
-    gameState.multiplication.multMax = r.multMax;
-    saveMultiplicationConfig();
+    // A escolha (trilha vs tabuada) define o resto.
 
     const overlay = document.getElementById('mm-modal-overlay');
     if (!overlay) return;
@@ -2457,7 +2454,7 @@ case 'multiplication':
                 const effectiveLevel = (gameState.multiplication && gameState.multiplication.pendingLevel) ? gameState.multiplication.pendingLevel : gameState.currentLevel;
                 const lvl = normLevelKey(effectiveLevel);
                 // garante faixa de tabuadas por nível (também no modo escolher tabuada)
-                const range = PET_BLUEPRINT.mult[lvl];
+                const range = PET_BLUEPRINT.mult[lvl] || PET_BLUEPRINT.mult.easy;
 
                 if (gameState.multiplication) {
                     // Atualiza faixa de trilha automaticamente
@@ -2615,48 +2612,48 @@ gameState.isGameActive = true;
 if (operation === 'multiplication' && gameState.multiplication && (gameState.multiplication.mode === 'direct' || gameState.multiplication.mode === 'trail')) {
     const r = getTabuadaRangeByLevel(level);
 
-    // Aplica a faixa do nível: tabuadas e multiplicadores
+    // Sempre registra a faixa do nível (para UI e trilha)
     gameState.multiplication.trailMin = r.min;
     gameState.multiplication.trailMax = r.max;
-    gameState.multiplication.multMin = r.multMin;
-    gameState.multiplication.multMax = r.multMax;
-    gameState.multiplication.trailRangeKey = `${r.min}-${r.max}|${r.multMin}-${r.multMax}`;
 
-    // Garante tabuada válida (modo direto)
-    if (!Number.isInteger(gameState.multiplication.tabuada) || gameState.multiplication.tabuada < r.min || gameState.multiplication.tabuada > r.max) {
-        gameState.multiplication.tabuada = r.min;
-    }
+    // 🔒 Direto (Escolher tabuada) é ESTRITO:
+    // - tabuada fixa escolhida
+    // - multiplicadores fixos 1–10 (independente do nível)
+    // - NÃO sobrescreve com a faixa do nível (isso causava vazamento/bug)
+    if (gameState.multiplication.mode === 'direct') {
+        gameState.multiplication.multMin = 1;
+        gameState.multiplication.multMax = 10;
+        gameState.multiplication.trailRangeKey = `${r.min}-${r.max}|1-10`;
 
-    if (gameState.multiplication.mode === 'trail') {
+        // Garante tabuada válida dentro da faixa do nível (a grade já limita, mas isso blinda)
+        if (!Number.isInteger(gameState.multiplication.tabuada) || gameState.multiplication.tabuada < r.min || gameState.multiplication.tabuada > r.max) {
+            gameState.multiplication.tabuada = r.min;
+        }
+
+        // Direto: embaralha 1–10 e percorre sem repetir até completar
+        prepareRoundMultipliersForCurrentLevel();
+
+        // Sessão = 10 questões (1..10)
+        gameState.totalQuestions = (gameState.multiplication.multMax - gameState.multiplication.multMin + 1);
+        saveMultiplicationConfig();
+    } else {
+        // Trilha: aplica faixa do nível para tabuadas e multiplicadores
+        gameState.multiplication.multMin = r.multMin;
+        gameState.multiplication.multMax = r.multMax;
+        gameState.multiplication.trailRangeKey = `${r.min}-${r.max}|${r.multMin}-${r.multMax}`;
+
         // Trilha: TODAS as contas do nível, em ordem aleatória (sem repetir até completar)
         ensureTrailPairs(r.min, r.max, r.multMin, r.multMax);
-    } else {
-        // Direto: multiplicadores embaralhados para a tabuada escolhida
-        prepareRoundMultipliersForCurrentLevel();
-    }
 
-    // Quantidade de questões por sessão:
-    // ✅ Modo Rápido TAMBÉM percorre o banco completo do nível (ciclo inteiro, sem repetir)
-    // - Trilha: percorre TODAS as contas da faixa do nível (ex.: 66/55/210), respeitando progresso salvo.
-    // - Direto: percorre todos os multiplicadores do nível para a tabuada escolhida.
-    const bankSize = (gameState.multiplication.mode === 'trail')
-        ? getTrailPairsBankSize(r.min, r.max, r.multMin, r.multMax)
-        : (r.multMax - r.multMin + 1);
-
-    if (gameState.multiplication.mode === 'trail') {
         // Se já houver progresso salvo no ciclo, joga apenas o restante para fechar o ciclo.
+        const bankSize = getTrailPairsBankSize(r.min, r.max, r.multMin, r.multMax);
         const idx = Number.isInteger(gameState.multiplication.trailPairIndex) ? gameState.multiplication.trailPairIndex : 0;
         const remaining = Math.max(0, bankSize - idx);
         gameState.totalQuestions = remaining > 0 ? remaining : bankSize;
-    } else {
-        gameState.totalQuestions = bankSize;
+
+        saveMultiplicationConfig();
     }
-
-    saveMultiplicationConfig();
 }
-
-
-
 
     // 2. Configura o tempo máximo baseado no nível e acessibilidade
     let baseTime;
@@ -3404,6 +3401,23 @@ function attachEventListeners() {
             
             // MUDANÇA: Vai para a tela de seleção de nível
             exibirTela('level-selection-screen');
+            // Título grande + contexto (operações em tela cheia)
+            try {
+                const mapName = {
+                    addition: 'Adição',
+                    subtraction: 'Subtração',
+                    multiplication: 'Multiplicação',
+                    division: 'Divisão',
+                    potenciacao: 'Potenciação',
+                    radiciacao: 'Radiciação'
+                };
+                const op = gameState.currentOperation;
+                const name = mapName[op] || op;
+                const h = document.querySelector('#level-selection-screen h1');
+                const sub = document.querySelector('#level-selection-screen .op-subtitle');
+                if (h) h.textContent = `${name} — escolha o nível`;
+                if (sub) sub.textContent = `Você escolheu: ${name}. Agora selecione a dificuldade para iniciar.`;
+            } catch (_) {}
             
             // Atualiza trilha (mapa) na tela de nível
             try { renderLearningMapPreview(gameState.currentOperation); } catch (_) {}
