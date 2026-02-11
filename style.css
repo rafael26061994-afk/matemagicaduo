@@ -1488,3 +1488,142 @@ body.high-contrast :focus-visible { outline: 3px solid #fff; }
 .onboarding-text{ font-size: 1rem; line-height:1.35; margin: 6px 0 14px; }
 .onboarding-actions{ display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; }
 .onboarding-actions button{ min-width: 120px; }
+
+
+/* ===========================
+   PET Story + Mode Picker
+   =========================== */
+.pet-story{
+  margin: 10px 0 14px;
+  padding: 14px 14px;
+  border-radius: 16px;
+  background: rgba(0,0,0,0.04);
+}
+.light-mode .pet-story{ background: rgba(0,0,0,0.04); }
+.dark-mode .pet-story{ background: rgba(255,255,255,0.06); }
+
+.pet-story-title{
+  margin: 0 0 6px;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+.pet-story-text{
+  margin: 0;
+  line-height: 1.35;
+  font-size: 0.95rem;
+  opacity: 0.95;
+}
+
+.mode-picker{
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(0,0,0,0.08);
+  background: rgba(255,255,255,0.7);
+}
+.dark-mode .mode-picker{ border-color: rgba(255,255,255,0.14); background: rgba(0,0,0,0.22); }
+.mode-picker-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.mode-picker-title{ font-weight: 800; }
+.mode-picker-buttons{
+  display:flex;
+  gap: 8px;
+}
+.mode-btn{
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.14);
+  background: rgba(255,255,255,0.9);
+  cursor: pointer;
+  font-weight: 800;
+}
+.dark-mode .mode-btn{ border-color: rgba(255,255,255,0.18); background: rgba(0,0,0,0.25); color: #fff; }
+.mode-btn.active{
+  outline: 3px solid rgba(52,211,153,0.45);
+  border-color: rgba(22,163,74,0.65);
+}
+.mode-picker-hint{
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+/* ===========================
+   UI mode tweaks
+   =========================== */
+body.ui-pc .container{
+  max-width: 980px;
+}
+body.ui-pc .quick-actions{
+  grid-template-columns: 1fr;
+}
+body.ui-pc .answer-option{
+  min-height: 56px;
+  font-size: 1.05rem;
+}
+
+/* Onboarding: uma fase por tela (sem rolagem) */
+#onboarding-modal .onb-card{
+  max-height: 85vh;
+  overflow: hidden;
+}
+#onboarding-modal .onb-body{
+  overflow: hidden;
+}
+
+
+/* ===========================
+   Onboarding modal
+   =========================== */
+.onb-overlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 10000;
+}
+.onb-overlay.hidden{ display:none; }
+.onb-card{
+  width: min(520px, 96vw);
+  background: var(--cor-fundo, #fff);
+  color: var(--cor-texto, #111);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+  display:flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.onb-header h2{ margin:0; font-size:1.15rem; }
+.onb-body{ flex: 1; display:flex; align-items:center; }
+.onb-body p{ margin:0; font-size:1rem; line-height:1.35; }
+.onb-dots{ display:flex; justify-content:center; gap:8px; }
+.onb-dot{
+  width: 10px; height:10px; border-radius: 999px;
+  background: rgba(0,0,0,0.18);
+}
+.dark-mode .onb-dot{ background: rgba(255,255,255,0.25); }
+.onb-dot.active{ background: var(--cor-primaria, #34D399); }
+.onb-actions{ display:flex; justify-content: space-between; gap:10px; }
+.onb-btn{
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-weight: 800;
+  cursor: pointer;
+  border: 1px solid rgba(0,0,0,0.14);
+  background: rgba(255,255,255,0.9);
+}
+.dark-mode .onb-btn{ border-color: rgba(255,255,255,0.18); background: rgba(0,0,0,0.25); color:#fff; }
+.onb-next{
+  background: var(--cor-primaria, #34D399);
+  border-color: rgba(22,163,74,0.65);
+  color: #04210f;
+}

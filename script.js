@@ -178,8 +178,79 @@ document.addEventListener('DOMContentLoaded', ()=>{
       if(btn && !btn.getAttribute('aria-label')) btn.setAttribute('aria-label', `Alternativa ${idx+1}`);
     });
   }catch(_){}
+  initUIModePicker();
   if(shouldShowOnboarding()) showOnboarding();
 });
+
+
+/* --------------------------- Modo de uso (Celular/PC) --------------------------- */
+const MODE_KEY = 'pet_ui_mode_v1'; // 'mobile' | 'pc'
+function getDefaultMode(){
+  try{
+    const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    const narrow = window.innerWidth && window.innerWidth < 900;
+    return (coarse || narrow) ? 'mobile' : 'pc';
+  }catch(_){ return 'mobile'; }
+}
+function getUIMode(){
+  try{
+    const v = localStorage.getItem(MODE_KEY);
+    return (v==='mobile' || v==='pc') ? v : null;
+  }catch(_){ return null; }
+}
+function setUIMode(mode){
+  if(mode!=='mobile' && mode!=='pc') return;
+  try{ localStorage.setItem(MODE_KEY, mode); }catch(_){}
+  applyUIMode(mode);
+}
+function applyUIMode(mode){
+  if(mode!=='mobile' && mode!=='pc') mode = getDefaultMode();
+  document.body.dataset.uiMode = mode;
+  document.body.classList.toggle('ui-mobile', mode==='mobile');
+  document.body.classList.toggle('ui-pc', mode==='pc');
+
+  const bM = document.getElementById('btn-mode-mobile');
+  const bP = document.getElementById('btn-mode-pc');
+  if(bM) bM.classList.toggle('active', mode==='mobile');
+  if(bP) bP.classList.toggle('active', mode==='pc');
+}
+function initUIModePicker(){
+  const saved = getUIMode();
+  applyUIMode(saved || getDefaultMode());
+
+  const bM = document.getElementById('btn-mode-mobile');
+  const bP = document.getElementById('btn-mode-pc');
+  if(bM) bM.addEventListener('click', ()=> setUIMode('mobile'));
+  if(bP) bP.addEventListener('click', ()=> setUIMode('pc'));
+
+  // PC: setas para navegar nas alternativas
+  document.addEventListener('keydown', (e)=>{
+    try{
+      const mode = document.body.dataset.uiMode;
+      if(mode!=='pc') return;
+      const activeScreen = gameState.currentScreen;
+      if(activeScreen!=='game-screen') return;
+      const opts = Array.from(document.querySelectorAll('.answer-option')).filter(Boolean);
+      if(opts.length===0) return;
+
+      const key = e.key;
+      const navKeys = ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'];
+      if(!navKeys.includes(key) && key!=='Enter' && key!==' ') return;
+
+      const focused = document.activeElement;
+      let idx = opts.indexOf(focused);
+      if(key==='Enter' || key===' '){
+        if(idx>=0) { e.preventDefault(); focused.click(); }
+        return;
+      }
+      e.preventDefault();
+      if(idx<0) idx = 0;
+      if(key==='ArrowRight' || key==='ArrowDown') idx = (idx+1) % opts.length;
+      if(key==='ArrowLeft' || key==='ArrowUp') idx = (idx-1+opts.length) % opts.length;
+      opts[idx].focus();
+    }catch(_){}
+  });
+}
 
 function exibirTela(id) {
     screens.forEach(screen => {
@@ -1838,15 +1909,15 @@ function getTabuadaRangeByLevel(level) {
 switch (level) {
         case 'easy':
             // Fácil: tabuadas 0–5, multiplicadores 0–10
-            return { min: 0, max: 5, multMin: 0, multMax: 10, label: 'Fácil (0–5 | ×0–10)' };
+            return { min: 0, max: 5, multMin: 1, multMax: 10, label: 'Fácil (0–5 | ×1–10)' };
         case 'medium':
             // Médio: tabuadas 6–10, multiplicadores 0–10
-            return { min: 6, max: 10, multMin: 0, multMax: 10, label: 'Médio (6–10 | ×0–10)' };
+            return { min: 6, max: 10, multMin: 1, multMax: 10, label: 'Médio (6–10 | ×1–10)' };
         case 'advanced':
             // Difícil: tabuadas 11–20, multiplicadores 0–20
-            return { min: 11, max: 20, multMin: 0, multMax: 20, label: 'Difícil (11–20 | ×0–20)' };
+            return { min: 11, max: 20, multMin: 1, multMax: 10, label: 'Difícil (11–20 | ×1–10)' };
         default:
-            return { min: 0, max: 20, multMin: 0, multMax: 20, label: 'Completo (0–20 | ×0–20)' };
+            return { min: 0, max: 20, multMin: 1, multMax: 10, label: 'Completo (0–20 | ×1–10)' };
     }
 }
 
@@ -1871,8 +1942,8 @@ function loadMultiplicationConfig() {
         // trilha (pares)
         const tabMin = Number.isInteger(gameState.multiplication.trailMin) ? gameState.multiplication.trailMin : 0;
         const tabMax = Number.isInteger(gameState.multiplication.trailMax) ? gameState.multiplication.trailMax : 20;
-        const multMin = Number.isInteger(gameState.multiplication.multMin) ? gameState.multiplication.multMin : 0;
-        const multMax = Number.isInteger(gameState.multiplication.multMax) ? gameState.multiplication.multMax : 20;
+        const multMin = Number.isInteger(gameState.multiplication.multMin) ? gameState.multiplication.multMin : 1;
+        const multMax = Number.isInteger(gameState.multiplication.multMax) ? gameState.multiplication.multMax : 10;
         const expectedLen = Math.max(0, (tabMax - tabMin + 1)) * Math.max(0, (multMax - multMin + 1));
 
         if (Array.isArray(cfg.trailPairs) && cfg.trailPairs.length === expectedLen) {
@@ -1971,8 +2042,8 @@ function getNextTrailPair() {
         // completou o ciclo → nova ordem aleatória
         const tabMin = Number.isInteger(gameState.multiplication.trailMin) ? gameState.multiplication.trailMin : 0;
         const tabMax = Number.isInteger(gameState.multiplication.trailMax) ? gameState.multiplication.trailMax : 20;
-        const multMin = Number.isInteger(gameState.multiplication.multMin) ? gameState.multiplication.multMin : 0;
-        const multMax = Number.isInteger(gameState.multiplication.multMax) ? gameState.multiplication.multMax : 20;
+        const multMin = Number.isInteger(gameState.multiplication.multMin) ? gameState.multiplication.multMin : 1;
+        const multMax = Number.isInteger(gameState.multiplication.multMax) ? gameState.multiplication.multMax : 10;
         gameState.multiplication.trailPairs = shuffleArray(buildTrailPairs(tabMin, tabMax, multMin, multMax));
         gameState.multiplication.trailPairIndex = 0;
     }
@@ -1991,15 +2062,15 @@ function getTrailPairsBankSize(tabMin, tabMax, multMin, multMax) {
 
 // Modo direto: multiplicadores embaralhados para a tabuada escolhida
 function prepareRoundMultipliersForCurrentLevel() {
-    const multMax = Number.isInteger(gameState.multiplication.multMax) ? gameState.multiplication.multMax : 20;
-    const multMin = Number.isInteger(gameState.multiplication.multMin) ? gameState.multiplication.multMin : 0;
+    const multMax = Number.isInteger(gameState.multiplication.multMax) ? gameState.multiplication.multMax : 10;
+    const multMin = Number.isInteger(gameState.multiplication.multMin) ? gameState.multiplication.multMin : 1;
     gameState.multiplication.roundMultipliers = shuffleArray(rangeInclusive(multMin, multMax));
     gameState.multiplication.roundPos = 0;
 }
 
 function getNextRoundMultiplier() {
-    const multMax = Number.isInteger(gameState.multiplication.multMax) ? gameState.multiplication.multMax : 20;
-    const multMin = Number.isInteger(gameState.multiplication.multMin) ? gameState.multiplication.multMin : 0;
+    const multMax = Number.isInteger(gameState.multiplication.multMax) ? gameState.multiplication.multMax : 10;
+    const multMin = Number.isInteger(gameState.multiplication.multMin) ? gameState.multiplication.multMin : 1;
     const expectedLen = (multMax - multMin + 1);
 
     if (!Array.isArray(gameState.multiplication.roundMultipliers) || gameState.multiplication.roundMultipliers.length !== expectedLen) {
@@ -2126,6 +2197,11 @@ function ensureMultiplicationModal() {
             b.addEventListener('click', () => {
                 gameState.multiplication.mode = 'direct';
                 gameState.multiplication.tabuada = i;
+                // modo 'Escolher tabuada': somente esta tabuada, multiplicadores 1–10
+                gameState.multiplication.multMin = 1;
+                gameState.multiplication.multMax = 10;
+                gameState.multiplication.roundMultipliers = null;
+                gameState.multiplication.roundPos = 0;
                 // persiste a faixa atual também
                 gameState.multiplication.trailMin = r.min;
                 gameState.multiplication.trailMax = r.max;
@@ -2506,7 +2582,17 @@ function startGame(operation, level) {
     gameState.currentOperation = operation;
     gameState.currentLevel = level;
  
-    gameState.isGameActive = true;
+    
+    // mantém nível pendente para a multiplicação (evita faixa errada no 'Escolher tabuada')
+    if(operation === 'multiplication' && gameState.multiplication){
+        gameState.multiplication.pendingLevel = level;
+        // No modo 'Escolher tabuada', multiplicadores fixos 1–10
+        if(gameState.multiplication.mode === 'direct'){
+            gameState.multiplication.multMin = 1;
+            gameState.multiplication.multMax = 10;
+        }
+    }
+gameState.isGameActive = true;
     gameState.score = 0;
     gameState.questionNumber = 0;
     gameState.acertos = 0;

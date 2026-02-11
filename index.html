@@ -17,6 +17,27 @@
 <header class="home-header">
 <img alt="Logo do Projeto" id="main-logo" src="Sem titulo.png"/>
 </header>
+
+<section class="pet-story" aria-label="História do PET">
+  <h1 class="pet-story-title">PET — Programa de Ensino da Tabuada</h1>
+  <p class="pet-story-text">
+    O PET nasceu na escola pública para resolver um problema simples: alunos que chegam ao 6º–9º ano com tabuada frágil
+    ficam travados em contas básicas e perdem confiança. Aqui a regra é outra: sessões curtas, pistas claras e reforço
+    automático quando o erro se repete. Em casa o aluno pratica com segurança; na escola o professor consolida.
+  </p>
+</section>
+
+<section class="mode-picker" aria-label="Escolher modo de uso">
+  <div class="mode-picker-row">
+    <span class="mode-picker-title">Modo de uso:</span>
+    <div class="mode-picker-buttons" role="group" aria-label="Modo de uso (Celular ou PC)">
+      <button type="button" id="btn-mode-mobile" class="mode-btn">📱 Celular</button>
+      <button type="button" id="btn-mode-pc" class="mode-btn">🖥️ PC</button>
+    </div>
+  </div>
+  <p class="mode-picker-hint">Escolha “PC” se estiver usando teclado (setas para navegar nas alternativas).</p>
+</section>
+
 <section aria-label="Continuar campanha" class="info-card hero-card">
 <div class="hero-row">
 <div class="hero-text">
@@ -362,5 +383,27 @@
 <script src="script.js"></script>
 <div id="vlibras-root"></div>
 <script src="a11y.js"></script>
+
+<!-- Onboarding (3 fases — uma por tela) -->
+<div id="onboarding-modal" class="onb-overlay hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-label="Tutorial inicial">
+  <div class="onb-card">
+    <div class="onb-header">
+      <h2 id="onb-title">PET</h2>
+    </div>
+    <div class="onb-body">
+      <p id="onb-text"></p>
+    </div>
+    <div class="onb-dots" aria-label="Progresso do tutorial">
+      <span id="onb-dot-1" class="onb-dot"></span>
+      <span id="onb-dot-2" class="onb-dot"></span>
+      <span id="onb-dot-3" class="onb-dot"></span>
+    </div>
+    <div class="onb-actions">
+      <button type="button" id="onb-skip" class="onb-btn onb-skip">Pular</button>
+      <button type="button" id="onb-next" class="onb-btn onb-next">Próximo</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
