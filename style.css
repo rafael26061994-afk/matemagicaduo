@@ -64,8 +64,9 @@ font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetic
 
 .container {
     width: 100%;
-    max-width: 600px;
+    max-width: none;
 }
+
 
 /* =========================================================================
    2. Estilos de Telas e Navegação (Screen Management)

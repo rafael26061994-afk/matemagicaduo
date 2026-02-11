@@ -23,6 +23,53 @@
 </div>
 </header>
 
+<section aria-label="História do PET" class="pet-story">
+<h1 class="pet-story-title">PET — Programa de Estudo da Tabuada</h1>
+<p class="pet-story-subtitle">Aprender matemática com jogos, tecnologia e inclusão de verdade.</p>
+<p>
+    O Projeto PET nasceu em um encontro pedagógico da rede municipal de Contagem/MG, a partir de uma constatação simples:
+    muitos estudantes até “decoram”, mas não dominam a tabuada (e outros conteúdos) com segurança.
+    O que começou como uma ideia leve evoluiu para uma proposta sólida, criada para engajar, dar autonomia e respeitar o ritmo de cada estudante.
+  </p>
+<p><strong>Idealizado pelos professores Rafael Oliveira e Ronaldo Soares</strong>, o PET une competências complementares:</p>
+<ul class="pet-story-list">
+<li><strong>Rafael Oliveira</strong> — foco em autonomia, IA aplicada à educação e acessibilidade</li>
+<li><strong>Ronaldo Soares</strong> — criatividade, sensibilidade pedagógica e abordagem lúdica</li>
+</ul>
+<h2 class="pet-story-h2">Objetivo do PET</h2>
+<p>
+    Estimular o aprendizado de conteúdos de Matemática por meio de jogos, tornando o estudo mais participativo, consistente e motivador — sem infantilizar.
+  </p>
+<h2 class="pet-story-h2">Inclusão no centro (não como detalhe)</h2>
+<p>
+    No PET, inclusão não é “tema”: é pilar. A vivência pessoal de Rafael com a monoparesia orienta escolhas concretas para que o aprendizado seja mais acessível,
+    mais humano e mais democrático — com tecnologia usada como ponte, não como barreira.
+  </p>
+<h2 class="pet-story-h2">Onde acontece</h2>
+<p>
+    Escola Municipal Vereador José Ferreira de Aguiar<br/>
+    Bairro Icaivera — Contagem/MG
+  </p>
+<h2 class="pet-story-h2">Nossos eixos</h2>
+<ul class="pet-story-list">
+<li><strong>Matemática em Jogo</strong>: aprendizagem ativa, lúdica e envolvente</li>
+<li><strong>Raciocínio Lógico</strong>: pensamento estratégico e resolução de problemas</li>
+<li><strong>Inclusão Radical</strong>: valorização das singularidades de cada estudante</li>
+<li><strong>Tecnologia Ética</strong>: IA como suporte ao desenvolvimento humano, com responsabilidade</li>
+</ul>
+</section>
+
+<section aria-label="Escolher modo de uso" class="mode-picker">
+<div class="mode-picker-row">
+<span class="mode-picker-title">Modo de uso:</span>
+<div aria-label="Modo de uso (Celular ou PC)" class="mode-picker-buttons" role="group">
+<button class="mode-btn" id="btn-mode-mobile" type="button">📱 Celular</button>
+<button class="mode-btn" id="btn-mode-pc" type="button">🖥️ PC</button>
+</div>
+</div>
+<p class="mode-picker-hint">Escolha “PC” se estiver usando teclado (setas para navegar nas alternativas).</p>
+</section>
+
 <section class="pet-story" aria-label="História do PET">
   <h1 class="pet-story-title">PET — Programa de Estudo da Tabuada</h1>
   <p class="pet-story-subtitle">Aprender matemática com jogos, tecnologia e inclusão de verdade.</p>
@@ -101,12 +148,70 @@
 <button class="quick-btn" id="btn-open-review" type="button">🧠 Revisão do dia</button>
 <button class="quick-btn" id="btn-minigame-day" type="button">⚡ Minigame 3 min</button>
 </div>
+
 <section aria-label="Escolha de campanha" class="info-card campaign-picker">
 <div aria-label="Campanhas" class="tabs" role="tablist">
 <button aria-selected="true" class="tab-btn active" id="campaign-pick-base" role="tab" type="button">Base (6º–7º)</button>
 <button aria-selected="false" class="tab-btn" id="campaign-pick-reforco" role="tab" type="button">Reforço (8º–9º)</button>
 </div>
 <p class="muted">Lições curtas, progresso claro e revisão inteligente.</p>
+</section>
+<section class="section">
+<div class="section-head">
+<h3 class="section-title">Modo livre</h3>
+<p class="section-sub">Escolha uma operação e treine no seu ritmo.</p>
+</div>
+<div class="operation-grid">
+<button class="operation-card" data-operation="addition" type="button"><h3>Adição (+)</h3></button>
+<button class="operation-card" data-operation="subtraction" type="button"><h3>Subtração (-)</h3></button>
+<button class="operation-card" data-operation="multiplication" type="button"><h3>Multiplicação (x)</h3></button>
+<button class="operation-card" data-operation="division" type="button"><h3>Divisão (÷)</h3></button>
+<button class="operation-card" data-operation="potenciacao" type="button"><h3>Potenciação (aⁿ)</h3></button>
+<button class="operation-card" data-operation="radiciacao" type="button"><h3>Radiciação (√)</h3></button>
+</div>
+</section>
+<section class="section">
+<div class="section-head">
+<h3 class="section-title">Ferramentas</h3>
+<p class="section-sub">Resultados e acompanhamento sem complicação.</p>
+</div>
+<button class="main-btn" id="btn-show-ranking" type="button">🏆 Ver Recordes</button>
+<a class="main-btn link-btn" href="relatorio.html">📄 Relatório do estudante</a>
+<a class="main-btn link-btn" href="family.html">👨‍👩‍👧 Cartão para a família</a>
+<a class="main-btn link-btn" href="professor.html">👩‍🏫 Painel do professor</a>
+</section>
+<section class="section">
+<div class="section-head">
+<h3 class="section-title">Configurações</h3>
+<p class="section-sub">Ajuste o app ao seu jeito.</p>
+</div>
+<div class="ui-prefs">
+<button class="setting-btn" id="btn-text-smaller" type="button"><span class="icon">A-</span> Texto</button>
+<button class="setting-btn" id="btn-text-bigger" type="button"><span class="icon">A+</span> Texto</button>
+<button class="setting-btn" id="toggle-high-contrast" type="button"><span class="icon">◐</span> Alto Contraste</button>
+<button class="setting-btn" id="toggle-reduce-motion" type="button"><span class="icon">⏸</span> Reduzir Movimento</button>
+<button class="setting-btn" id="toggle-layout-mode" type="button"><span class="icon">📱</span> Layout: Auto</button>
+<button class="setting-btn" id="toggle-mentors" type="button"><span class="icon">🎯</span> Dificuldades</button>
+</div>
+<div class="settings-bar">
+<button class="setting-btn" id="toggle-night-mode">
+<span class="icon">🌙</span> Modo Noite
+                </button>
+<div class="modes-toggle">
+                    Modo:
+                    <button class="mode-btn active" id="mode-rapido">Rápido</button>
+<button class="mode-btn" id="mode-estudo">Estudo</button>
+</div>
+</div>
+<div class="accessibility-bar">
+<span class="access-title">Acessibilidade:</span>
+<button class="setting-btn toggle-access" id="toggle-voice-read">
+<span class="icon">🔊</span> Leitura de Voz
+                </button>
+<button class="setting-btn toggle-access" id="toggle-libras">
+<span class="icon">🤟</span> Modo Libras
+                </button>
+</div>
 </section>
 <section class="section mentors-section">
 <div class="section-head">
@@ -332,6 +437,25 @@
       <button type="button" id="onb-skip" class="onb-btn onb-skip">Pular</button>
       <button type="button" id="onb-next" class="onb-btn onb-next">Próximo</button>
     </div>
+  </div>
+</div>
+
+
+<div class="modal-overlay hidden" id="difficulties-modal" aria-modal="true" role="dialog" aria-label="Selecionar dificuldades">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2 class="modal-title">Dificuldades (foco do treino)</h2>
+      <button type="button" class="modal-close" id="btn-close-diff" aria-label="Fechar">✕</button>
+    </div>
+    <p class="muted">Marque as dificuldades mais comuns da turma. O app vai priorizar dicas e microcorreções nesses pontos.</p>
+    <div class="checklist" id="diff-list">
+      <label class="check-item"><input type="checkbox" value="ADD_C10"> Completar 10/20 (adição)</label>
+      <label class="check-item"><input type="checkbox" value="ADD_CARRY"> Vai‑um (adição)</label>
+      <label class="check-item"><input type="checkbox" value="SUB_BORROW"> Empréstimo (subtração)</label>
+      <label class="check-item"><input type="checkbox" value="MUL_6_10"> Tabuadas 6–10</label>
+      <label class="check-item"><input type="checkbox" value="MUL_11_20"> Tabuadas 11–20</label>
+    </div>
+    <button type="button" class="btn-primary" id="btn-save-diff">Salvar</button>
   </div>
 </div>
 

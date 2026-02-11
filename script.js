@@ -37,6 +37,11 @@ const btnClearErrors = document.getElementById('btn-clear-errors');
 const btnStartTraining = document.getElementById('btn-start-training');
 
 
+
+// --- Helpers seguros (evitam quebrar quando algum botão não existir) ---
+function safeOn(el, evt, fn) { if (el && el.addEventListener) el.addEventListener(evt, fn); }
+function safeSetText(el, txt) { if (el) el.textContent = txt; }
+
 // Variavel para síntese de voz (Web Speech API)
 const synth = window.speechSynthesis;
 
@@ -172,6 +177,8 @@ function showOnboarding(){
   render();
 }
 document.addEventListener('DOMContentLoaded', ()=>{
+    wireDifficultiesModal();
+
   try{
     // A11y: garantir aria-label nas alternativas
     document.querySelectorAll('.answer-option').forEach((btn,idx)=>{
@@ -2222,7 +2229,8 @@ function ensureMultiplicationModal() {
                 saveMultiplicationConfig();
                 close();
                 startGame('multiplication', lvl);
-            });
+            });});
+            b.addEventListener('pointerup', (ev) => { ev.preventDefault(); ev.stopPropagation(); b.click(); });
             grid.appendChild(b);
         }
     };
@@ -2488,7 +2496,12 @@ case 'multiplication':
                 }
 
                 if (gameState.multiplication && gameState.multiplication.mode === 'direct') {
-                    const t = gameState.multiplication.tabuada;
+                    // 🔒 Estrito: tabuada fixa escolhida pelo estudante
+                    const tRaw = gameState.multiplication.tabuada;
+                    const t = Number.isInteger(tRaw) ? tRaw : 1;
+                    // multiplicadores sempre 1–10 no modo direto
+                    gameState.multiplication.multMin = 1;
+                    gameState.multiplication.multMax = 10;
                     const m = getNextRoundMultiplier();
                     num1 = t;
                     num2 = m;
@@ -3663,7 +3676,7 @@ speak(`Operação ${gameState.currentOperation} selecionada. Agora escolha o ní
     }
 
     if (btnStartTraining) {
-        btnStartTraining.addEventListener('click', () => {
+        safeOn(btnStartTraining, 'click', () => {
             startErrorTraining();
         });
     }
@@ -4099,6 +4112,53 @@ function setMentorEnabled(on) {
     if (btn) btn.classList.toggle('active', gameState.mentor.enabled);
     const bubble = document.getElementById('mentor-bubble');
     if (bubble && !gameState.mentor.enabled) bubble.classList.add('hidden');
+
+// --- Dificuldades (substitui 'Mentores' como menu de seleção) ---
+function loadDifficultyFocus() {
+    try {
+        const raw = localStorage.getItem('matemagica_diff_focus');
+        if (!raw) return [];
+        const arr = JSON.parse(raw);
+        return Array.isArray(arr) ? arr : [];
+    } catch (_) { return []; }
+}
+function saveDifficultyFocus(arr) {
+    try { localStorage.setItem('matemagica_diff_focus', JSON.stringify(arr || [])); } catch (_) {}
+}
+function openDifficultiesModal() {
+    const modal = document.getElementById('difficulties-modal');
+    if (!modal) return;
+    const selected = new Set(loadDifficultyFocus());
+    modal.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.checked = selected.has(cb.value);
+    });
+    modal.classList.remove('hidden');
+}
+function closeDifficultiesModal() {
+    const modal = document.getElementById('difficulties-modal');
+    if (modal) modal.classList.add('hidden');
+}
+function wireDifficultiesModal() {
+    const btn = document.getElementById('toggle-mentors');
+    safeOn(btn, 'click', (e) => { e.preventDefault(); openDifficultiesModal(); });
+
+    safeOn(document.getElementById('btn-close-diff'), 'click', closeDifficultiesModal);
+    safeOn(document.getElementById('btn-save-diff'), 'click', () => {
+        const modal = document.getElementById('difficulties-modal');
+        if (!modal) return;
+        const chosen = [];
+        modal.querySelectorAll('input[type="checkbox"]').forEach(cb => { if (cb.checked) chosen.push(cb.value); });
+        saveDifficultyFocus(chosen);
+        closeDifficultiesModal();
+        showFeedbackMessage('Preferências salvas.', 'success');
+    });
+
+    // fecha ao clicar fora
+    safeOn(document.getElementById('difficulties-modal'), 'click', (e) => {
+        if (e.target && e.target.id === 'difficulties-modal') closeDifficultiesModal();
+    });
+}
+
 }
 
 function mentorPickAvatar() {
@@ -4259,7 +4319,7 @@ function initRedesignUI() {
             else exibirTela('campaign-screen');
         });
     }
-    if (btnOpenCampaign) btnOpenCampaign.addEventListener('click', () => { renderCampaignScreen(); exibirTela('campaign-screen'); });
+    if (btnOpenCampaign) safeOn(btnOpenCampaign, 'click', () => { renderCampaignScreen(); exibirTela('campaign-screen'); });
     if (btnReview) btnReview.addEventListener('click', () => { exibirTela('error-training-screen'); });
     if (btnMini) {
         btnMini.addEventListener('click', () => {
@@ -5465,7 +5525,7 @@ function setupTypedKeypad(){
   // Rewire Revisão do dia para sessão inteligente (70/30)
   const btnOpenReview = document.getElementById('btn-open-review');
   if (btnOpenReview){
-    btnOpenReview.addEventListener('click', ()=>{
+    safeOn(btnOpenReview, 'click', ()=>{
       // inicia sessão smartReview (10 questões)
       const cid = selectedCampaign();
       const op = (cid==='base') ? (gameState.currentOperation || 'addition') : pickReviewOperation();
