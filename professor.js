@@ -296,7 +296,124 @@ function parseWeeklyJson(raw){
     return out;
   }
 
-  function buildInterventionText(list){
+  
+let PET_INTERVENTIONS = null;
+
+async function loadInterventions(){
+  if (PET_INTERVENTIONS) return PET_INTERVENTIONS;
+  try{
+    const res = await fetch('./interventions.json', {cache:'no-store'});
+    if (!res.ok) throw new Error('HTTP '+res.status);
+    PET_INTERVENTIONS = await res.json();
+  }catch(e){
+    PET_INTERVENTIONS = {items:[]};
+  }
+  return PET_INTERVENTIONS;
+}
+
+function pickInterventionsForTopOp(topOp){
+  const op = String(topOp||'').toLowerCase();
+  if (!PET_INTERVENTIONS || !Array.isArray(PET_INTERVENTIONS.items)) return [];
+  if (!op) return PET_INTERVENTIONS.items.slice(0,4);
+  // mapeia nomes internos
+  const map = { addition:'add', subtracao:'sub', subtraction:'sub', multiplication:'mul', divisao:'div', division:'div' };
+  const opKey = map[op] || op;
+  return PET_INTERVENTIONS.items.filter(x => x.op === opKey);
+}
+
+function formatInterventionCard(it){
+  const lines = [];
+  lines.push(`🧩 ${it.title} (${it.duration_min||10} min)`);
+  if (it.materials?.length) lines.push(`Materiais: ${it.materials.join(', ')}`);
+  lines.push('');
+  lines.push('Passo a passo:');
+  (it.steps||[]).forEach((s,i)=> lines.push(`${i+1}) ${s}`));
+  if (it.observe?.length){
+    lines.push('');
+    lines.push('Observar:');
+    it.observe.forEach(s=> lines.push(`• ${s}`));
+  }
+  if (it.revalidate){
+    lines.push('');
+    lines.push(`Revalidar: ${it.revalidate}`);
+  }
+  return lines.join('\n');
+}
+
+async function renderInterventionLibrary(topOp){
+  const box = document.getElementById('intervention');
+  if (!box) return;
+  await loadInterventions();
+
+  // cria/acha container
+  let lib = document.getElementById('interv-lib');
+  if (!lib){
+    lib = document.createElement('div');
+    lib.id = 'interv-lib';
+    lib.style.marginTop = '12px';
+    box.appendChild(lib);
+  }
+  lib.innerHTML = '';
+
+  const list = pickInterventionsForTopOp(topOp);
+  if (!list.length){
+    const p = document.createElement('p');
+    p.className = 'muted';
+    p.textContent = 'Biblioteca de intervenções indisponível (interventions.json não carregou).';
+    lib.appendChild(p);
+    return;
+  }
+
+  const title = document.createElement('h4');
+  title.textContent = 'Biblioteca de intervenções (10–15 min)';
+  title.style.margin = '6px 0 8px';
+  lib.appendChild(title);
+
+  // mostra no máx 6 pra não virar parede
+  const show = list.slice(0,6);
+  for (const it of show){
+    const card = document.createElement('div');
+    card.className = 'info-card';
+    card.style.marginTop = '10px';
+
+    const h = document.createElement('div');
+    h.style.display = 'flex';
+    h.style.alignItems = 'center';
+    h.style.justifyContent = 'space-between';
+    h.style.gap = '10px';
+
+    const left = document.createElement('div');
+    left.innerHTML = `<strong>${it.title}</strong><div class="tiny muted">${it.tag} • ${it.duration_min||10} min</div>`;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'main-btn';
+    btn.textContent = 'Copiar plano';
+    btn.addEventListener('click', async () => {
+      const txt = formatInterventionCard(it);
+      try{ await navigator.clipboard.writeText(txt); }catch(e){}
+      showToast?.('Plano copiado.');
+    });
+
+    h.appendChild(left);
+    h.appendChild(btn);
+
+    const pre = document.createElement('pre');
+    pre.style.whiteSpace = 'pre-wrap';
+    pre.style.marginTop = '10px';
+    pre.style.padding = '12px';
+    pre.style.borderRadius = '16px';
+    pre.style.background = 'rgba(0,0,0,0.04)';
+    pre.style.border = '1px solid rgba(0,0,0,0.08)';
+    pre.style.fontSize = '0.95em';
+    pre.textContent = formatInterventionCard(it);
+
+    card.appendChild(h);
+    card.appendChild(pre);
+    lib.appendChild(card);
+  }
+}
+function buildInterventionText(list){
     if (!list.length) return {text:'Importe relatórios para gerar uma recomendação automática.', canCopy:false};
 
     // Agrega erros por operação
@@ -357,6 +474,8 @@ function parseWeeklyJson(raw){
   function renderIntervention(list){
     const r = buildInterventionText(list);
     if (els.interventionText) els.interventionText.textContent = r.text;
+    // Biblioteca de planos por erro (10–15 min)
+    renderInterventionLibrary(r.topOp);
     if (els.btnCopyIntervention){
       els.btnCopyIntervention.disabled = !r.canCopy;
       els.btnCopyIntervention.onclick = ()=>{

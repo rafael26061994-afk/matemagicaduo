@@ -1,6 +1,6 @@
 /* Matemágica Duo - Service Worker (Offline) */
 // Incrementar sempre que houver mudanças para forçar atualização do cache
-const CACHE_NAME = 'matemagica-duo-v19.9';
+const CACHE_NAME = 'matemagica-v20.1';
 const ASSETS = [
   '.',
   './index.html',
@@ -19,7 +19,8 @@ const ASSETS = [
   './family.html',
   './professor.html',
   './professor.js',
-  './qrcode.min.js'
+  './qrcode.min.js',
+  './interventions.json'
 ];
 
 self.addEventListener('install', (event) => {

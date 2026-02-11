@@ -63,7 +63,11 @@ const gameState = {
     forceEasy: 0,
     isVoiceReadActive: false,
     isRapidMode: true,
-    errors: [], 
+    errors: [],
+    answerTimes: [],
+    fastAnswers: 0,
+    suspectSession: false,
+ 
     highScores: [], 
 
     // Timer (Modo Rápido)
@@ -126,6 +130,57 @@ const gameState = {
 // --- FUNÇÕES UTILITY E ACESSIBILIDADE ---
 
 /** Exibe uma tela e oculta as outras */
+
+/* ---------------------------- Onboarding (v20) --------------------------- */
+const ONBOARD_KEY = 'pet_onboarded_v1';
+function shouldShowOnboarding(){
+  try{ return localStorage.getItem(ONBOARD_KEY) !== '1'; }catch(_){ return true; }
+}
+function markOnboardingDone(){
+  try{ localStorage.setItem(ONBOARD_KEY,'1'); }catch(_){}
+}
+function showOnboarding(){
+  const modal = document.getElementById('onboarding-modal');
+  if(!modal) return;
+  const title = document.getElementById('onb-title');
+  const text = document.getElementById('onb-text');
+  const nextBtn = document.getElementById('onb-next');
+  const skipBtn = document.getElementById('onb-skip');
+  const dots = [document.getElementById('onb-dot-1'),document.getElementById('onb-dot-2'),document.getElementById('onb-dot-3')];
+
+  const steps = [
+    {t:'PET: estudo curto e eficiente', d:'Você faz sessões de 10 a 20 minutos. Errar faz parte: o app te dá pistas e reforço, sem punição.'},
+    {t:'Como avançar (domínio real)', d:'Você só conclui uma lição quando acerta bem e mantém estabilidade. Se travar, o app abre uma Missão de Reforço.'},
+    {t:'Dica de ouro', d:'Não chute. Pense e use as estratégias (completar 10, vai‑um, empréstimo, âncoras da tabuada). Isso acelera seu progresso.'}
+  ];
+  let i=0;
+  function render(){
+    dots.forEach((el,idx)=>{ if(el) el.classList.toggle('active', idx===i); });
+    if(title) title.textContent = steps[i].t;
+    if(text) text.textContent = steps[i].d;
+    if(nextBtn) nextBtn.textContent = (i===steps.length-1)?'Começar':'Próximo';
+  }
+  function close(){
+    modal.classList.add('hidden');
+    markOnboardingDone();
+    try{ modal.setAttribute('aria-hidden','true'); }catch(_){}
+  }
+  if(skipBtn) skipBtn.onclick = close;
+  if(nextBtn) nextBtn.onclick = ()=>{ if(i<steps.length-1){ i++; render(); } else { close(); } };
+  modal.classList.remove('hidden');
+  try{ modal.setAttribute('aria-hidden','false'); }catch(_){}
+  render();
+}
+document.addEventListener('DOMContentLoaded', ()=>{
+  try{
+    // A11y: garantir aria-label nas alternativas
+    document.querySelectorAll('.answer-option').forEach((btn,idx)=>{
+      if(btn && !btn.getAttribute('aria-label')) btn.setAttribute('aria-label', `Alternativa ${idx+1}`);
+    });
+  }catch(_){}
+  if(shouldShowOnboarding()) showOnboarding();
+});
+
 function exibirTela(id) {
     screens.forEach(screen => {
         screen.classList.remove('active');
@@ -411,6 +466,7 @@ function ensureLearningMapUI() {
             // v19.1 — anti-frustração: próxima(s) questão(ões) mais fáceis sem avisar
             gameState.forceEasy = 2;
             gameState.wrongStreak = 0;
+        try{ gameState.__tagStreak = {}; gameState.__inMicro = false; }catch(_){ }
         }
             screen.appendChild(card);
         }
@@ -1160,6 +1216,12 @@ function startErrorTraining() {
     gameState.questionNumber = 0;
     gameState.score = 0;
     gameState.acertos = 0;
+    gameState.answerTimes = [];
+    gameState.fastAnswers = 0;
+    gameState.suspectSession = false;
+    gameState.__inMicro = false;
+    gameState.__tagStreak = {};
+
     gameState.erros = 0;
     gameState.sessionStartTs = Date.now();
     
@@ -1211,6 +1273,7 @@ function nextTrainingQuestion() {
 
 function endTraining() {
     gameState.isGameActive = false;
+    gameState.__inMicro = false;
     gameState.isTrainingErrors = false;
 
     // Reabilita botões
@@ -1279,11 +1342,13 @@ function randomInt(min, max) {
 // Observação: nível usa 'easy' | 'medium' | 'advanced' internamente; aceitamos 'hard' como sinônimo de 'advanced'.
 
 function normLevelKey(lvl){
-    if (lvl === 'hard') return 'advanced';
-    if (lvl === 'dificil') return 'advanced';
-    if (lvl === 'medio') return 'medium';
-    if (lvl === 'facil') return 'easy';
-    return (lvl === 'advanced' || lvl === 'medium' || lvl === 'easy') ? lvl : 'easy';
+    if (!lvl) return 'medium';
+    const s = String(lvl).toLowerCase();
+    // aceita variações PT/EN com e sem acento
+    if (s === 'hard' || s === 'difficult' || s === 'difícil' || s === 'dificil' || s === 'advanced') return 'advanced';
+    if (s === 'easy' || s === 'facil' || s === 'fácil') return 'easy';
+    if (s === 'medium' || s === 'medio' || s === 'médio') return 'medium';
+    return s;
 }
 
 const PET_BLUEPRINT = {
@@ -2277,7 +2342,8 @@ function generateQuestion(operation) {
     switch (operation) {
         case 'addition':
             {
-                const lvl = normLevelKey(gameState.currentLevel);
+                const effectiveLevel = (gameState.multiplication && gameState.multiplication.pendingLevel) ? gameState.multiplication.pendingLevel : gameState.currentLevel;
+                const lvl = normLevelKey(effectiveLevel);
                 const useFixed = Math.random() < 0.70;
                 let pair = null;
                 if (useFixed) pair = nextFromFixedPool('addition', lvl);
@@ -2295,7 +2361,8 @@ function generateQuestion(operation) {
             break;
 case 'subtraction':
             {
-                const lvl = normLevelKey(gameState.currentLevel);
+                const effectiveLevel = (gameState.multiplication && gameState.multiplication.pendingLevel) ? gameState.multiplication.pendingLevel : gameState.currentLevel;
+                const lvl = normLevelKey(effectiveLevel);
                 const useFixed = Math.random() < 0.70;
                 let pair = null;
                 if (useFixed) pair = nextFromFixedPool('subtraction', lvl);
@@ -2313,7 +2380,8 @@ case 'subtraction':
             break;
 case 'multiplication':
             {
-                const lvl = normLevelKey(gameState.currentLevel);
+                const effectiveLevel = (gameState.multiplication && gameState.multiplication.pendingLevel) ? gameState.multiplication.pendingLevel : gameState.currentLevel;
+                const lvl = normLevelKey(effectiveLevel);
                 // garante faixa de tabuadas por nível (também no modo escolher tabuada)
                 const range = PET_BLUEPRINT.mult[lvl];
 
@@ -2442,6 +2510,12 @@ function startGame(operation, level) {
     gameState.score = 0;
     gameState.questionNumber = 0;
     gameState.acertos = 0;
+    gameState.answerTimes = [];
+    gameState.fastAnswers = 0;
+    gameState.suspectSession = false;
+    gameState.__inMicro = false;
+    gameState.__tagStreak = {};
+
     gameState.erros = 0;
     gameState.sessionStartTs = Date.now();
     
@@ -2587,6 +2661,33 @@ gameState.questionNumber++;
     // 1. Gerar nova questão 
     const newQ = generateQuestion(gameState.currentOperation);
     gameState.currentQuestion = newQ;
+    // ID estável para anti-vazamento (treino vs validação)
+    // Se for validação: evita itens vistos recentemente no treino
+    try{
+      if(gameState.sessionConfig && gameState.sessionConfig.validation===true){
+        let tries=0;
+        while(tries<12 && isRecentlySeenInTrain(newQ, 14)){
+          const reroll = generateQuestion(gameState.currentOperation);
+          newQ.question = reroll.question; newQ.answer = reroll.answer; newQ.options = reroll.options; newQ.voiceOptions = reroll.voiceOptions;
+          newQ.operacao = reroll.operacao; newQ.num1 = reroll.num1; newQ.num2 = reroll.num2;
+          const a = (newQ.num1!=null)?newQ.num1:''; const b=(newQ.num2!=null)?newQ.num2:'';
+          newQ.id = `${gameState.currentOperation}|${a}|${b}`;
+          tries++;
+        }
+      }
+    }catch(_){ }
+
+    try{
+      if(!newQ.id){
+        const a = (newQ.num1!=null)?newQ.num1:'';
+        const b = (newQ.num2!=null)?newQ.num2:'';
+        newQ.id = `${gameState.currentOperation}|${a}|${b}`;
+      }
+      if(!newQ.skillTag){ newQ.skillTag = computeSkillTag(newQ, null); }
+      // Marca como visto no treino (exceto validação)
+      if(!(gameState.sessionConfig && gameState.sessionConfig.validation===true)) rememberTrainItem(newQ);
+    }catch(_){ }
+    gameState.qStartTs = Date.now();
     gameState.attemptsThisQuestion = 0;
     // 2. Atualizar UI
     const totalDisplay = (gameState.isRapidMode || isTabuadaRound || isFiniteSession) ? gameState.totalQuestions : '∞';
@@ -2639,6 +2740,166 @@ function saveError(question, userAnswer) {
 }
 
 
+
+/* ------------------ Pedagogia: skillTag + explicação (v20) ------------------ */
+const TRAIN_SEEN_KEY = 'pet_seen_train_ids_v1';
+function loadSeenTrain(){
+  try{ return JSON.parse(localStorage.getItem(TRAIN_SEEN_KEY) || '{}'); }catch(_){ return {}; }
+}
+function saveSeenTrain(map){
+  try{ localStorage.setItem(TRAIN_SEEN_KEY, JSON.stringify(map)); }catch(_){}
+}
+function rememberTrainItem(q){
+  try{
+    if(!q || !q.id) return;
+    const map = loadSeenTrain();
+    map[q.id] = Date.now();
+    saveSeenTrain(map);
+  }catch(_){}
+}
+function isRecentlySeenInTrain(q, days=14){
+  try{
+    if(!q || !q.id) return false;
+    const map = loadSeenTrain();
+    const ts = map[q.id];
+    if(!ts) return false;
+    const ms = days*24*60*60*1000;
+    return (Date.now()-ts) < ms;
+  }catch(_){ return false; }
+}
+function normLevelKey(lvl){
+  const v = String(lvl||'').toLowerCase();
+  if(v==='fácil' || v==='facil' || v==='easy') return 'easy';
+  if(v==='médio' || v==='medio' || v==='medium') return 'medium';
+  if(v==='difícil' || v==='dificil' || v==='hard' || v==='advanced') return 'hard';
+  return v || 'easy';
+}
+function computeSkillTag(q, userAnswer){
+  const op = q?.operacao || q?.operation || gameState.currentOperation;
+  const a = Number(q?.num1); const b = Number(q?.num2);
+  if(op==='addition'){
+    const uSum = (a%10)+(b%10);
+    if(((a+b)%10)===0 || ((a+b)%20)===0) return 'ADD_C10';
+    if(uSum>=10) return 'ADD_CARRY';
+    return 'ADD_BASIC';
+  }
+  if(op==='subtraction'){
+    if((a%10) < (b%10)) return 'SUB_BORROW';
+    return 'SUB_NO_BORROW';
+  }
+  if(op==='multiplication'){
+    const maxF = Math.max(a,b);
+    if(a===9 || b===9) return 'MUL_9_ANCHOR';
+    if(maxF>=11) return 'MUL_DIST_11_20';
+    // confunde com soma?
+    const sum = a+b;
+    if(Number.isFinite(userAnswer) && (userAnswer===sum || Math.abs(userAnswer-sum)<=1)) return 'MUL_VS_ADD';
+    return 'MUL_BASIC';
+  }
+  if(op==='division'){ return 'DIV_SHARE'; }
+  return null;
+}
+function buildExplanation(q, tag){
+  const op = q?.operacao || gameState.currentOperation;
+  const a = Number(q?.num1); const b = Number(q?.num2);
+  if(op==='addition' && tag==='ADD_C10'){
+    const need = (10-(a%10))%10;
+    if(need>0 && need<=9){
+      return `${a} + ${b}: complete 10 primeiro. ${a} precisa de ${need} para virar ${a+need}. Depois some o resto.`;
+    }
+    return `${a} + ${b}: procure completar 10 (ou 20) e depois somar o que sobrou.`;
+  }
+  if(op==='addition' && tag==='ADD_CARRY'){
+    const uSum=(a%10)+(b%10);
+    return `${a} + ${b}: as unidades dão ${uSum}. Como passou de 10, troque 10 unidades por 1 dezena (vai‑um).`;
+  }
+  if(op==='subtraction' && tag==='SUB_BORROW'){
+    return `${a} − ${b}: nas unidades não dá. Pegue 1 dezena e transforme em 10 unidades (empréstimo).`;
+  }
+  if(op==='subtraction' && tag==='SUB_NO_BORROW'){
+    return `${a} − ${b}: dá para tirar nas unidades. Não precisa emprestar.`;
+  }
+  if(op==='multiplication' && tag==='MUL_VS_ADD'){
+    return `${a} × ${b}: multiplicar é repetir grupos iguais (não é somar os fatores). Pense em ${a} grupos de ${b}.`;
+  }
+  if(op==='multiplication' && tag==='MUL_9_ANCHOR'){
+    const n = (a===9)?b:a;
+    return `9 × ${n}: use a âncora 10×${n} − ${n}.`;
+  }
+  if(op==='multiplication' && tag==='MUL_DIST_11_20'){
+    const big=Math.max(a,b), n=Math.min(a,b);
+    const rest = big-10;
+    return `${big} × ${n}: quebre em 10×${n} + ${rest}×${n}.`;
+  }
+  if(op==='division'){
+    return `${a} ÷ ${b}: dividir é repartir igualmente. Pense em grupos do mesmo tamanho.`;
+  }
+  return 'Use uma estratégia: pense antes de marcar.';
+}
+/* microcorreções: 5 itens dirigidos por tag */
+function generateMicroSet(tag, level){
+  const lvl = normLevelKey(level || gameState.currentLevel);
+  const out=[];
+  function pushQ(op,a,b){
+    const q = generateQuestion(op); // base
+    // overwrite if possible by building from numbers
+    try{
+      const built = buildQuestionFromNumbers(op,a,b);
+      if(built) return out.push(built);
+    }catch(_){}
+    // fallback: keep generated
+    out.push(q);
+  }
+  if(tag==='ADD_C10'){
+    [[6,4],[8,2],[7,3],[14,6],[12,8]].forEach(([a,b])=>pushQ('addition',a,b));
+  } else if(tag==='ADD_CARRY'){
+    [[23,8],[37,6],[28,17],[46,18],[49,12]].forEach(([a,b])=>pushQ('addition',a,b));
+  } else if(tag==='SUB_BORROW'){
+    [[52,7],[41,9],[61,28],[70,46],[120,57]].forEach(([a,b])=>pushQ('subtraction',a,b));
+  } else if(tag==='SUB_NO_BORROW'){
+    [[54,12],[87,23],[69,14],[75,25],[92,41]].forEach(([a,b])=>pushQ('subtraction',a,b));
+  } else if(tag==='MUL_VS_ADD'){
+    [[2,4],[3,4],[4,3],[5,2],[5,4]].forEach(([a,b])=>pushQ('multiplication',a,b));
+  } else if(tag==='MUL_9_ANCHOR'){
+    [[9,4],[9,6],[9,7],[9,8],[9,9]].forEach(([a,b])=>pushQ('multiplication',a,b));
+  } else if(tag==='MUL_DIST_11_20'){
+    [[11,6],[12,7],[15,8],[18,6],[14,9]].forEach(([a,b])=>pushQ('multiplication',a,b));
+  } else if(tag==='DIV_SHARE'){
+    [[12,3],[15,5],[18,6],[20,4],[24,6]].forEach(([a,b])=>pushQ('division',a,b));
+  }
+  return out.slice(0,5).map(q=>{
+    // ensure no timer in micro
+    return q;
+  });
+}
+function startMicroCorrection(tag){
+  if(!tag) return;
+  // evita loop infinito
+  if(gameState.__inMicro) return;
+  gameState.__inMicro = true;
+  // sem tempo
+  gameState.isTrainingErrors = true;
+  gameState.isRapidMode = false;
+  stopTimer();
+  if(btnShowAnswer) btnShowAnswer.disabled = true;
+  if(btnExtendTime) btnExtendTime.disabled = true;
+  // fila dirigida
+  const qs = generateMicroSet(tag, gameState.currentLevel);
+  gameState.trainingQueue = qs.map(buildQuestionFromErrorSafe);
+  gameState.trainingIndex = 0;
+  gameState.totalQuestions = gameState.trainingQueue.length;
+  gameState.questionNumber = 0;
+  showFeedbackMessage(buildExplanation(gameState.currentQuestion, tag), 'info', 3200);
+  // inicia
+  nextTrainingQuestion(true);
+}
+/* helpers para fila dirigida */
+function buildQuestionFromErrorSafe(q){
+  // q pode vir como objeto questão já pronto
+  if(q && q.question && q.options) return q;
+  return q;
+}
+
 function handleAnswer(selectedAnswer, selectedButton) {
     if (!gameState.isGameActive) return;
     if (gameState.answerLocked) return;
@@ -2650,6 +2911,14 @@ function handleAnswer(selectedAnswer, selectedButton) {
     const isTraining = !!gameState.isTrainingErrors;
     const isCorrect = selectedAnswer === q.answer;
 
+    // Tempo de resposta (anti-chute)
+    const dt = (gameState.qStartTs ? (Date.now() - gameState.qStartTs) : null);
+    if (dt != null) {
+        gameState.answerTimes.push(dt);
+        if (dt < 600) gameState.fastAnswers = (gameState.fastAnswers || 0) + 1;
+    }
+
+
     // Trava clique duplo muito rápido
     gameState.answerLocked = true;
     setTimeout(() => { gameState.answerLocked = false; }, 220);
@@ -2659,6 +2928,21 @@ function handleAnswer(selectedAnswer, selectedButton) {
         stopTimer();
     }
 
+function buildQuestionFromNumbers(op, a, b){
+  a = Number(a); b = Number(b);
+  if(!Number.isFinite(a) || !Number.isFinite(b)) return null;
+  const operacao = op;
+  let questionStr = '';
+  let answer = 0;
+  if(op==='addition'){ questionStr = `${a} + ${b} = ?`; answer = a+b; }
+  else if(op==='subtraction'){ questionStr = `${a} - ${b} = ?`; answer = a-b; }
+  else if(op==='multiplication'){ questionStr = `${a} × ${b} = ?`; answer = a*b; }
+  else if(op==='division'){ questionStr = `${a} ÷ ${b} = ?`; answer = Math.floor(a/b); }
+  else return null;
+  const opts = generateOptions(answer, op);
+  return { question: questionStr, answer, options: opts, voiceOptions: opts, operacao, num1:a, num2:b, id: `${op}|${a}|${b}`, skillTag: null };
+}
+
     // Estilo: destaca o botão clicado
     if (selectedButton) {
         selectedButton.classList.remove('correct', 'wrong');
@@ -2667,6 +2951,7 @@ function handleAnswer(selectedAnswer, selectedButton) {
 
     if (isCorrect) {
         gameState.wrongStreak = 0;
+        try{ gameState.__tagStreak = {}; gameState.__inMicro = false; }catch(_){ }
         // Finaliza (correto)
         if (gameState.isRapidMode && !isTraining) stopTimer();
 
@@ -2731,6 +3016,20 @@ function handleAnswer(selectedAnswer, selectedButton) {
     atualizarXP(-2);
     saveError(q, selectedAnswer);
 
+    // Feedback explicativo + microcorreção por erro recorrente
+    const tag = computeSkillTag(q, selectedAnswer);
+    try{ gameState.v17 = gameState.v17 || {}; gameState.v17.currentSkillTag = tag; }catch(_){ }
+    const expl = buildExplanation(q, tag);
+    if(!isTraining) showFeedbackMessage(expl, 'warning', 2600);
+    gameState.__tagStreak = gameState.__tagStreak || {};
+    gameState.__tagStreak[tag] = (gameState.__tagStreak[tag] || 0) + 1;
+    // gatilho: 2 seguidos do mesmo tipo
+    if(gameState.__tagStreak[tag] >= 2){
+      setTimeout(()=>{ startMicroCorrection(tag); }, 450);
+      gameState.__tagStreak[tag] = 0;
+    }
+
+
     // No treino: não revela a resposta; deixa refazer até acertar
     if (isTraining) {
         // Desabilita só a alternativa errada (evita repetir a mesma)
@@ -2773,11 +3072,21 @@ function handleAnswer(selectedAnswer, selectedButton) {
 
 function endGame() {
     gameState.isGameActive = false;
+    gameState.__inMicro = false;
     if (gameState.isRapidMode) stopTimer();
 
     // 1. Calcular XP Ganhos na Rodada (apenas para exibição)
-    const xpGained = gameState.acertos * (gameState.isRapidMode ? 5 : 2) - gameState.erros * 2;
+    const xpGained = gameState.acertos * (gameState.isRapidMode ? 5 : 2) - gameState.erros * 2 - gameState.erros * 0;
     
+    // --- Anti-chute: marca sessão suspeita ---
+    try{
+        const total = (gameState.acertos||0)+(gameState.erros||0);
+        const acc = total>0 ? (gameState.acertos/total) : 0;
+        const fast = gameState.fastAnswers || 0;
+        const median = (()=>{ const arr=(gameState.answerTimes||[]).slice().sort((a,b)=>a-b); if(arr.length===0) return null; return arr[Math.floor(arr.length/2)]; })();
+        gameState.suspectSession = (total>=8 && acc<0.6 && (fast/Math.max(1,total))>0.55) || (median!=null && median<550 && acc<0.6);
+    }catch(_){ gameState.suspectSession=false; }
+
     // 2. Atualizar UI de Resultados
     document.getElementById('final-score').textContent = gameState.score;
     document.getElementById('total-hits').textContent = gameState.acertos;
@@ -2805,7 +3114,7 @@ function endGame() {
     // --- Campanha: marca lição como concluída e avança ---
     try {
         if (gameState.sessionConfig && gameState.sessionConfig.type === 'campaign') {
-            completeCampaignLesson(gameState.sessionConfig);
+            completeCampaignLesson(gameState.sessionConfig, {acertos: gameState.acertos, erros: gameState.erros, suspect: !!gameState.suspectSession});
         }
     } catch (_) {}
 
@@ -3056,6 +3365,7 @@ speak(`Operação ${gameState.currentOperation} selecionada. Agora escolha o ní
         if (gameState.isGameActive) {
             showFeedbackMessage("Rodada cancelada.", 'warning', 2000);
             gameState.isGameActive = false;
+    gameState.__inMicro = false;
         }
         exibirTela('home-screen');
     });
@@ -3438,6 +3748,12 @@ function setCampaignProgress(campaignId, prog) {
     saveCampaignState(st);
 }
 
+function isRetentionDue(ts){
+  if(!ts) return false;
+  const ms = 7*24*60*60*1000;
+  return (Date.now()-ts) > ms;
+}
+
 function lessonKey(campaignId, unitIndex, lessonIndex) {
     return `${campaignId}_u${unitIndex}_l${lessonIndex}`;
 }
@@ -3542,6 +3858,10 @@ function startCampaignLesson(campaignId, unitIndex, lessonIndex) {
     const lesson = unit?.lessons?.[lessonIndex];
     if (!lesson) return;
 
+    const prog = getCampaignProgress(campaignId);
+    const k = lessonKey(campaignId, unitIndex, lessonIndex);
+    const passes = (prog && prog.passes && prog.passes[k]) ? prog.passes[k] : 0;
+    const needsValidation = (passes === 1) && !(prog && prog.done && prog.done[k]);
     // Define sessão especial (campanha)
     gameState.sessionConfig = {
         type: 'campaign',
@@ -3550,7 +3870,8 @@ function startCampaignLesson(campaignId, unitIndex, lessonIndex) {
         lessonIndex,
         totalQuestions: lesson.total || 10,
         forceRapidMode: (lesson.mode === 'rapid'),
-        label: `${camp.name} • ${unit.title} • ${lesson.title}`
+        label: `${camp.name} • ${unit.title} • ${lesson.title}${needsValidation ? ' • Validação' : ''}`,
+        validation: needsValidation
     };
 
     // Força modo (sem depender do toggle da home)
@@ -3561,14 +3882,42 @@ function startCampaignLesson(campaignId, unitIndex, lessonIndex) {
     startGame(lesson.operation, lesson.level);
 }
 
-function completeCampaignLesson(cfg) {
+function completeCampaignLesson(cfg, stats) {
     const camp = CAMPAIGNS[cfg.campaignId];
     if (!camp) return;
 
     const prog = getCampaignProgress(cfg.campaignId);
     const key = lessonKey(cfg.campaignId, cfg.unitIndex, cfg.lessonIndex);
     if (!prog.done) prog.done = {};
+    if (!prog.passes) prog.passes = {};
+    if (!prog.doneAt) prog.doneAt = {};
+
+    // Critério de domínio (MVP): 85%+ e não suspeito
+    const total = (stats?.acertos || 0) + (stats?.erros || 0);
+    const acc = total>0 ? (stats.acertos/total) : 0;
+    const ok = (acc >= 0.85) && !(stats?.suspect);
+
+    if (!ok) {
+        // Não conclui: exige reforço
+        showFeedbackMessage('Para concluir a lição: acerte pelo menos 85% e evite chute. Tente de novo (o app vai te reforçar).', 'warning', 4200);
+        renderCampaignScreen();
+        updateHomeCampaignUI();
+        return;
+    }
+
+    // Estabilidade: precisa passar 2 vezes (2 sessões)
+    prog.passes[key] = (prog.passes[key] || 0) + 1;
+    if (prog.passes[key] < 2) {
+        showFeedbackMessage('Boa. Falta 1 validação curta para confirmar domínio (2ª sessão).', 'info', 4200);
+        setCampaignProgress(cfg.campaignId, prog);
+        renderCampaignScreen();
+        updateHomeCampaignUI();
+        return;
+    }
+
+    // Concluído
     prog.done[key] = true;
+    prog.doneAt[key] = Date.now();
 
     // Avança ponteiro (próxima lição não concluída)
     let ui = cfg.unitIndex;

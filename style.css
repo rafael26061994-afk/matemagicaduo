@@ -1450,3 +1450,41 @@ body.force-mobile .quick-actions{ grid-template-columns: 1fr !important; }
   grid-column: span 4;
   font-weight: 800;
 }
+
+
+/* --- Audit v20: foco visível + hierarquia CTA + onboarding --- */
+:focus-visible { outline: 3px solid #000; outline-offset: 3px; }
+body.high-contrast :focus-visible { outline: 3px solid #fff; }
+
+.primary-cta{
+  font-weight: 800 !important;
+  transform: translateZ(0);
+  box-shadow: 0 10px 22px rgba(0,0,0,.18);
+  border-width: 2px !important;
+}
+.primary-cta:active{ transform: scale(0.99); }
+
+.home-cta-stack{ display:flex; flex-direction:column; gap:12px; }
+.home-cta-secondary{ opacity: .92; }
+
+.onboarding-modal{
+  position:fixed; inset:0; z-index:9999;
+  display:flex; align-items:center; justify-content:center;
+  background: rgba(0,0,0,.55);
+  padding:16px;
+}
+.onboarding-card{
+  width:min(560px, 96vw);
+  background: var(--cor-card, #fff);
+  color: var(--cor-texto, #111);
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 16px 40px rgba(0,0,0,.25);
+}
+.onboarding-steps{ display:flex; gap:8px; margin: 0 0 10px 0; }
+.onboarding-dot{ width:10px; height:10px; border-radius:99px; background: rgba(0,0,0,.2); }
+.onboarding-dot.active{ background: rgba(0,0,0,.8); }
+.onboarding-title{ font-size: 1.15rem; font-weight:800; margin: 6px 0; }
+.onboarding-text{ font-size: 1rem; line-height:1.35; margin: 6px 0 14px; }
+.onboarding-actions{ display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; }
+.onboarding-actions button{ min-width: 120px; }
