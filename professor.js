@@ -435,7 +435,7 @@ function buildInterventionText(list){
     const [topOp, topErr] = [...opMap.entries()].sort((a,b)=>b[1]-a[1])[0] || ['—',0];
     const topAcc = accMap.has(topOp) ? Math.round(accMap.get(topOp)*100) : 0;
 
-    // Pega top mistakes do primeiro relatório (geralmente aluno) — se houver vários, tenta o maior “wrong”
+    // Pega top mistakes do primeiro relatório (geralmente estudante) — se houver vários, tenta o maior “wrong”
     const best = list.slice().sort((a,b)=>Number(b.summary?.wrong||0)-Number(a.summary?.wrong||0))[0] || list[0];
     const patt = detectPatternFromMistakes(best.topMistakes || []);
 
@@ -570,7 +570,7 @@ function renderSummary(list){
       .sort((a,b)=>Number(a[1].accuracy)-Number(b[1].accuracy))[0];
 
     const parts = [];
-    parts.push(`Aluno: ${w.student?.name || w.student?.code || '—'} · Turma: ${w.student?.turma || '—'}`);
+    parts.push(`Estudante: ${w.student?.name || w.student?.code || '—'} · Turma: ${w.student?.turma || '—'}`);
     parts.push(`Uso (7d): ${w.usage?.activeDays||0} dias · ${w.usage?.totalMinutes||0} min · ${w.usage?.sessions||0} sessões`);
     if (w.performance?.accuracy!=null) parts.push(`Precisão geral (7d): ${w.performance.accuracy}%`);
 
@@ -785,7 +785,7 @@ function renderSummary(list){
     const mistakes = (r.topMistakes||[]).slice(0,5);
 
     const html = `
-      Aluno: ${r.studentCode||'-'} ${r.studentName? '('+r.studentName+')':''}
+      Estudante: ${r.studentCode||'-'} ${r.studentName? '('+r.studentName+')':''}
       Turma: ${r.classId||'-'}
       Período: ${fmtPeriod(r)}
       Questões: ${r.summary.questions} | Acertos: ${r.summary.correct} | Erros: ${r.summary.wrong} | Precisão: ${r.summary.accuracy}%
@@ -952,7 +952,7 @@ function copyWhats(){
       `📊 Matemágica — Resumo ${cls? 'da turma '+cls : ''}`,
       `Relatórios: ${list.length}`,
       `Questões: ${total.questions} | Precisão média: ${accPct}%`,
-      `Top 5 alunos (por precisão):`,
+      `Top 5 estudantes (por precisão):`,
       ...list.slice().sort((a,b)=>Number(b.summary.accuracy||0)-Number(a.summary.accuracy||0)).slice(0,5).map(r=>`- ${(r.studentCode||r.studentName||'-')}: ${r.summary.accuracy}% (${r.summary.correct}/${r.summary.questions})`)
     ].join('\n');
 

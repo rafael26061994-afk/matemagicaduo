@@ -258,7 +258,7 @@ const topMistakes = summarizeTop(errors, (e)=>{
   function renderReport(report){
     const lines = [];
     lines.push(`<div class="tiny muted">Gerado em: <strong>${escapeHtml(fmtDate(report.createdAt))}</strong></div>`);
-    lines.push(`<div style="margin-top:8px;"><span class="pill">Turma</span> ${escapeHtml(report.classId || '-')}&nbsp;&nbsp;<span class="pill">Aluno</span> ${escapeHtml(report.studentCode || report.studentName || '-')}</div>`);
+    lines.push(`<div style="margin-top:8px;"><span class="pill">Turma</span> ${escapeHtml(report.classId || '-')}&nbsp;&nbsp;<span class="pill">Estudante</span> ${escapeHtml(report.studentCode || report.studentName || '-')}</div>`);
     lines.push(`<div style="margin-top:8px;">Questões: <strong>${report.summary.questions}</strong> · Acertos: <strong>${report.summary.correct}</strong> · Erros: <strong>${report.summary.wrong}</strong> · Precisão: <strong>${report.summary.accuracy}%</strong></div>`);
     lines.push(`<div class="bar" style="margin-top:8px;"><div style="width:${report.summary.accuracy}%;"></div></div>`);
     lines.push(`<div class="tiny muted" style="margin-top:8px;">XP ganho no período: <strong>${report.summary.xpGained}</strong> · XP total: <strong>${report.summary.xpTotal}</strong> · Tempo: <strong>${report.summary.durationSec}s</strong></div>`);
@@ -524,7 +524,7 @@ function init(){
       const code = String(els.code.value||'').trim();
       if (!code) return alert('Gere o relatório primeiro.');
       const report = parseCode(code);
-      const name = `matemagica_relatorio_${(report.studentCode||report.studentName||'aluno')}_${report.periodStart}_${report.periodEnd}.json`;
+      const name = `matemagica_relatorio_${(report.studentCode||report.studentName||'estudante')}_${report.periodStart}_${report.periodEnd}.json`;
       download(name, 'application/json;charset=utf-8', JSON.stringify(report, null, 2));
     });
 
@@ -532,13 +532,13 @@ function init(){
       const code = String(els.code.value||'').trim();
       if (!code) return alert('Gere o relatório primeiro.');
       const report = parseCode(code);
-      const name = `matemagica_relatorio_${(report.studentCode||report.studentName||'aluno')}_${report.periodStart}_${report.periodEnd}.csv`;
+      const name = `matemagica_relatorio_${(report.studentCode||report.studentName||'estudante')}_${report.periodStart}_${report.periodEnd}.csv`;
       download(name, 'text/csv;charset=utf-8', makeCsv(report));
 
 
     els.btnWeekly?.addEventListener('click', ()=>{
       const summary = buildWeeklySummary(7);
-      const safeName = (summary.student.code || summary.student.name || 'aluno').toString().trim().replace(/\s+/g,'_');
+      const safeName = (summary.student.code || summary.student.name || 'estudante').toString().trim().replace(/\s+/g,'_');
       const name = `matemagica_resumo_semanal_${safeName}.json`;
       downloadJsonFile(name, summary);
     });

@@ -603,7 +603,7 @@ function renderLearningMapPreview(operation) {
 }
 
 
-// --- UI: botão Perfil do aluno (opcional) ---
+// --- UI: botão Perfil do estudante (opcional) ---
 function ensureProfileUI() {
     if (document.getElementById('btn-student-profile')) return;
 
@@ -633,7 +633,7 @@ function ensureProfileUI() {
 
         <div class="teacher-panel-section">
           <label class="tp-label">Nome (ou apelido)</label>
-          <input id="profile-name" class="tp-input" type="text" maxlength="50" placeholder="Ex.: Ana, João, Aluno 12">
+          <input id="profile-name" class="tp-input" type="text" maxlength="50" placeholder="Ex.: Ana, João, Estudante 12">
           <label class="tp-label">Turma</label>
           <input id="profile-turma" class="tp-input" type="text" maxlength="30" placeholder="Ex.: 701, 8ºA">
           <label class="tp-label">Escola</label>
@@ -808,7 +808,7 @@ function renderRanking() {
         const dateStr = d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
         const whoParts = [];
-        if (e.studentName) whoParts.push(`Aluno: ${e.studentName}`);
+        if (e.studentName) whoParts.push(`Estudante: ${e.studentName}`);
         if (e.studentTurma) whoParts.push(`Turma: ${e.studentTurma}`);
         if (e.studentEscola) whoParts.push(`Escola: ${e.studentEscola}`);
         const whoStr = whoParts.length ? (whoParts.join(' • ') + ' • ') : '';
@@ -2206,9 +2206,7 @@ function ensureMultiplicationModal() {
                 gameState.multiplication.trailMin = r.min;
                 gameState.multiplication.trailMax = r.max;
                 gameState.multiplication.trailRangeKey = `${r.min}-${r.max}|${r.multMin}-${r.multMax}`;
-                gameState.multiplication.multMin = r.multMin;
-                gameState.multiplication.multMax = r.multMax;
-                saveMultiplicationConfig();
+                                saveMultiplicationConfig();
                 close();
                 startGame('multiplication', gameState.multiplication.pendingLevel || gameState.currentLevel || 'medium');
             });
@@ -2465,14 +2463,6 @@ case 'multiplication':
                     // Atualiza faixa de trilha automaticamente
                     gameState.multiplication.trailMin = range.tabMin;
                     gameState.multiplication.trailMax = range.tabMax;
-
-                    // Se estiver no modo direto e a tabuada estiver fora da faixa, corrige
-                    if (gameState.multiplication.mode === 'direct') {
-                        let t = Number.isInteger(gameState.multiplication.tabuada) ? gameState.multiplication.tabuada : range.tabMin;
-                        if (t < range.tabMin) t = range.tabMin;
-                        if (t > range.tabMax) t = range.tabMax;
-                        gameState.multiplication.tabuada = t;
-                    }
                 }
 
                 if (gameState.multiplication && gameState.multiplication.mode === 'direct') {
@@ -3514,6 +3504,22 @@ speak(`Operação ${gameState.currentOperation} selecionada. Agora escolha o ní
             const isActive = !gameState.isVoiceReadActive;
             gameState.isVoiceReadActive = isActive;
             toggleVoiceRead.classList.toggle('active', isActive);
+            // Ajuste imediato do tempo no Modo Rápido quando a voz é ativada/desativada
+            try {
+                if (gameState.isRapidMode && Number.isFinite(gameState.baseTime)) {
+                    const librasOn = document.body.classList.contains('libras-mode');
+                    const accOn = !!isActive || librasOn;
+                    const newMax = accOn ? (gameState.baseTime * 2) : gameState.baseTime;
+                    const prevMax = gameState.maxTime;
+                    gameState.maxTime = newMax;
+                    if (isActive && prevMax === gameState.baseTime) {
+                        gameState.timeLeft = Math.min(gameState.maxTime, gameState.timeLeft * 2);
+                    } else {
+                        gameState.timeLeft = Math.min(gameState.timeLeft, gameState.maxTime);
+                    }
+                    updateTimeBar();
+                }
+            } catch (_) {}
             if(synth) synth.cancel();
             speak(`Leitura de Voz ${isActive ? 'ativada' : 'desativada'}!`);
             showFeedbackMessage(`Leitura de Voz ${isActive ? 'ativada' : 'desativada'}!`, 'info', 2000);
@@ -5048,6 +5054,8 @@ attachEventListeners();
             streak=0;
             break;
           }
+    // Guarda baseTime para ajustes (ex.: dobrar tempo ao ativar voz)
+    gameState.baseTime = baseTime;
         }
       }
     }
