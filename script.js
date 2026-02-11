@@ -2211,6 +2211,9 @@ function ensureMultiplicationModal() {
 
                 gameState.multiplication.mode = 'direct';
                 gameState.multiplication.tabuada = i;
+                gameState.multiplication.directLock = true;
+                gameState.multiplication.lockTabuada = i;
+                gameState.multiplication.directMultipliers = [];
                 gameState.multiplication.pendingLevel = lvl;
                 gameState.currentLevel = lvl;
 
@@ -2255,6 +2258,9 @@ function ensureMultiplicationModal() {
             e.stopPropagation();
             const r = getCurrentRange();
             gameState.multiplication.mode = 'trail';
+            gameState.multiplication.directLock = false;
+            gameState.multiplication.lockTabuada = null;
+            gameState.multiplication.directMultipliers = [];
             ensureTrailPairs(r.min, r.max, r.multMin, r.multMax);
             saveMultiplicationConfig();
             close();
@@ -2486,25 +2492,36 @@ case 'multiplication':
             {
                 const effectiveLevel = (gameState.multiplication && gameState.multiplication.pendingLevel) ? gameState.multiplication.pendingLevel : gameState.currentLevel;
                 const lvl = normLevelKey(effectiveLevel);
-                // garante faixa de tabuadas por nível (também no modo escolher tabuada)
                 const range = PET_BLUEPRINT.mult[lvl] || PET_BLUEPRINT.mult.easy;
 
-                if (gameState.multiplication) {
-                    // Atualiza faixa de trilha automaticamente
-                    gameState.multiplication.trailMin = range.tabMin;
-                    gameState.multiplication.trailMax = range.tabMax;
-                }
+                const mulState = gameState.multiplication || (gameState.multiplication = {});
+                // sempre atualiza a faixa da trilha para exibição (não interfere no modo direto)
+                mulState.trailMin = range.tabMin;
+                mulState.trailMax = range.tabMax;
 
-                if (gameState.multiplication && gameState.multiplication.mode === 'direct') {
-                    // 🔒 Estrito: tabuada fixa escolhida pelo estudante
-                    const tRaw = gameState.multiplication.tabuada;
-                    const t = Number.isInteger(tRaw) ? tRaw : 1;
-                    // multiplicadores sempre 1–10 no modo direto
-                    gameState.multiplication.multMin = 1;
-                    gameState.multiplication.multMax = 10;
-                    const m = getNextRoundMultiplier();
+                const isDirect = (mulState.mode === 'direct') || (mulState.directLock === true);
+
+                if (isDirect) {
+                    // 🔒 Modo direto: tabuada FIXA escolhida pelo estudante, SEM qualquer ajuste por nível
+                    const t = Number.isInteger(mulState.lockTabuada) ? mulState.lockTabuada
+                            : (Number.isInteger(mulState.tabuada) ? mulState.tabuada : 1);
+
+                    mulState.directLock = true;
+                    mulState.lockTabuada = t;
+                    mulState.tabuada = t;
+
+                    // multiplicadores fixos 1–10, em ciclo embaralhado (evita repetir sempre o mesmo)
+                    mulState.multMin = 1;
+                    mulState.multMax = 10;
+                    if (!Array.isArray(mulState.directMultipliers) || mulState.directMultipliers.length === 0) {
+                        mulState.directMultipliers = [];
+                        for (let k = 1; k <= 10; k++) mulState.directMultipliers.push(k);
+                        shuffleArray(mulState.directMultipliers);
+                    }
+                    const mVal = mulState.directMultipliers.pop();
+
                     num1 = t;
-                    num2 = m;
+                    num2 = mVal;
                 } else {
                     // Trilha: 70% pool fixo (50) + 30% gerador por regras (anti-decor)
                     const useFixed = Math.random() < 0.70;
@@ -2518,7 +2535,9 @@ case 'multiplication':
                     num1 = pair[0];
                     num2 = pair[1];
 
-                    if (gameState.multiplication) gameState.multiplication.tabuada = num1;
+                    // não sobrescreve tabuada caso o modo direto tenha sido travado
+                    if (!mulState.directLock) mulState.tabuada = num1;
+
                     maybeRebuildFixedPool('multiplication', lvl);
                 }
 

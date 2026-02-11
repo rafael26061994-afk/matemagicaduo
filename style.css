@@ -56,15 +56,15 @@ font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetic
     color: var(--cor-texto-principal);
     transition: background-color 0.3s, color 0.3s;
     min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: var(--espacamento-padrao);
+    display: block;
+    padding: 0;
 }
 
 .container {
     width: 100%;
     max-width: none;
+    min-height: 100vh;
+    padding: var(--espacamento-padrao);
 }
 
 
