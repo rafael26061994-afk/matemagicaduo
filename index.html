@@ -15,14 +15,13 @@
 <div class="container">
 <div class="screen active" id="home-screen">
 <header class="home-header">
-<div class="pet-hero" aria-label="Mascotes do PET">
-  <img alt="Mascotes do PET: Ferreirinha e Zezinho" id="main-logo" src="Sem titulo.png"/>
-  <span class="pet-spark s1" aria-hidden="true">✦</span>
-  <span class="pet-spark s2" aria-hidden="true">✧</span>
-  <span class="pet-spark s3" aria-hidden="true">✦</span>
+<div aria-label="Mascotes do PET" class="pet-hero">
+<img alt="Mascotes do PET: Ferreirinha e Zezinho" id="main-logo" src="Sem titulo.png"/>
+<span aria-hidden="true" class="pet-spark s1">✦</span>
+<span aria-hidden="true" class="pet-spark s2">✧</span>
+<span aria-hidden="true" class="pet-spark s3">✦</span>
 </div>
 </header>
-
 <section aria-label="História do PET" class="pet-story">
 <h1 class="pet-story-title">PET — Programa de Estudo da Tabuada</h1>
 <p class="pet-story-subtitle">Aprender matemática com jogos, tecnologia e inclusão de verdade.</p>
@@ -58,7 +57,6 @@
 <li><strong>Tecnologia Ética</strong>: IA como suporte ao desenvolvimento humano, com responsabilidade</li>
 </ul>
 </section>
-
 <section aria-label="Escolher modo de uso" class="mode-picker">
 <div class="mode-picker-row">
 <span class="mode-picker-title">Modo de uso:</span>
@@ -69,21 +67,6 @@
 </div>
 <p class="mode-picker-hint">Escolha “PC” se estiver usando teclado (setas para navegar nas alternativas).</p>
 </section>
-
-
-
-
-<section class="mode-picker" aria-label="Escolher modo de uso">
-  <div class="mode-picker-row">
-    <span class="mode-picker-title">Modo de uso:</span>
-    <div class="mode-picker-buttons" role="group" aria-label="Modo de uso (Celular ou PC)">
-      <button type="button" id="btn-mode-mobile" class="mode-btn">📱 Celular</button>
-      <button type="button" id="btn-mode-pc" class="mode-btn">🖥️ PC</button>
-    </div>
-  </div>
-  <p class="mode-picker-hint">Escolha “PC” se estiver usando teclado (setas para navegar nas alternativas).</p>
-</section>
-
 <section aria-label="Continuar campanha" class="info-card hero-card">
 <div class="hero-row">
 <div class="hero-text">
@@ -91,7 +74,7 @@
 <p class="hero-sub" id="home-campaign-sub">Escolha uma campanha para começar.</p>
 </div>
 <div class="home-cta-stack">
-<button class="main-btn cta-btn" id="btn-continue-campaign" class="home-cta-secondary" type="button">▶ Continuar</button>
+<button class="home-cta-secondary" id="btn-continue-campaign" type="button">▶ Continuar</button>
 </div>
 <div class="daily-goal">
 <div class="daily-row">
@@ -102,14 +85,12 @@
 <div class="bar-fill" id="daily-progress-bar" style="width:0%"></div>
 </div>
 </div>
-</section>
+</div></section>
 <div aria-label="Atalhos" class="quick-actions">
-<button class="quick-btn" id="btn-open-campaign" class="primary-cta" type="button">🚀 Começar agora</button>
-</div>
+<button class="quick-btn primary-cta" id="btn-open-campaign" type="button">🚀 Começar agora</button>
 <button class="quick-btn" id="btn-open-review" type="button">🧠 Revisão do dia</button>
 <button class="quick-btn" id="btn-minigame-day" type="button">⚡ Minigame 3 min</button>
 </div>
-
 <section aria-label="Escolha de campanha" class="info-card campaign-picker">
 <div aria-label="Campanhas" class="tabs" role="tablist">
 <button aria-selected="true" class="tab-btn active" id="campaign-pick-base" role="tab" type="button">Base (6º–7º)</button>
@@ -210,14 +191,9 @@
 </div>
 <div class="screen" id="level-selection-screen">
 <header class="game-header">
-<button class="btn-secondary btn-voltar-home">Mudar Operação</button>
-<h1>Configuração e Nível</h1>
-<p class="op-subtitle muted">Selecione a operação e o nível.</p>
+<button class="btn-secondary btn-voltar-home" type="button">← Voltar</button>
+<h1 id="level-screen-title">Escolha o nível</h1>
 </header>
-<div class="info-card">
-<h2>Selecione a Dificuldade</h2>
-<p>O nível de dificuldade define a complexidade das questões e, no Modo Rápido, o tempo limite, que é dobrado caso a Acessibilidade (Voz ou Libras) esteja ativa, conforme a regra do jogo.</p>
-</div>
 <div class="level-selection">
 <button class="level-btn" data-level="easy">
 <h3>Fácil (👶)</h3>
@@ -232,9 +208,6 @@
 <p>Para mestres. Potências e raízes complexas, tabuadas e números altos (Tempo Base: 45s).</p>
 </button>
 </div>
-<p style="text-align: center; margin-top: 20px; font-weight: 600; color: var(--cor-secundaria);">
-                O Modo de Jogo (Rápido/Estudo) e Acessibilidade já foram definidos. Clique em um nível para iniciar o desafio!
-            </p>
 </div>
 <div class="screen" id="game-screen">
 <header class="game-header">
@@ -257,7 +230,6 @@
 </div>
 <div aria-label="Ferramentas" class="game-tools">
 <button class="tool-btn" id="btn-hint" type="button">🧩 Dica</button>
-
 </div>
 <div aria-label="Dicas" class="hint-panel hidden" id="hint-panel" role="region">
 <div class="hint-head">
@@ -267,7 +239,6 @@
 <div class="hint-body" id="hint-body"></div>
 <button class="btn-primary hint-next" id="btn-next-hint" type="button">Próxima dica</button>
 </div>
-
 <div aria-label="Checkpoint rápido" aria-modal="true" class="modal-overlay hidden" id="microcheck-overlay" role="dialog">
 <div class="modal-card">
 <h3 class="modal-title">Checkpoint rápido</h3>
@@ -379,46 +350,42 @@
 <script src="script.js"></script>
 <div id="vlibras-root"></div>
 <script src="a11y.js"></script>
-
 <!-- Onboarding (3 fases — uma por tela) -->
-<div id="onboarding-modal" class="onb-overlay hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-label="Tutorial inicial">
-  <div class="onb-card">
-    <div class="onb-header">
-      <h2 id="onb-title">PET</h2>
-    </div>
-    <div class="onb-body">
-      <p id="onb-text"></p>
-    </div>
-    <div class="onb-dots" aria-label="Progresso do tutorial">
-      <span id="onb-dot-1" class="onb-dot"></span>
-      <span id="onb-dot-2" class="onb-dot"></span>
-      <span id="onb-dot-3" class="onb-dot"></span>
-    </div>
-    <div class="onb-actions">
-      <button type="button" id="onb-skip" class="onb-btn onb-skip">Pular</button>
-      <button type="button" id="onb-next" class="onb-btn onb-next">Próximo</button>
-    </div>
-  </div>
+<div aria-hidden="true" aria-label="Tutorial inicial" aria-modal="true" class="onb-overlay hidden" id="onboarding-modal" role="dialog">
+<div class="onb-card">
+<div class="onb-header">
+<h2 id="onb-title">PET</h2>
 </div>
-
-
-<div class="modal-overlay hidden" id="difficulties-modal" aria-modal="true" role="dialog" aria-label="Selecionar dificuldades">
-  <div class="modal-card">
-    <div class="modal-head">
-      <h2 class="modal-title">Dificuldades (foco do treino)</h2>
-      <button type="button" class="modal-close" id="btn-close-diff" aria-label="Fechar">✕</button>
-    </div>
-    <p class="muted">Marque as dificuldades mais comuns da turma. O app vai priorizar dicas e microcorreções nesses pontos.</p>
-    <div class="checklist" id="diff-list">
-      <label class="check-item"><input type="checkbox" value="ADD_C10"> Completar 10/20 (adição)</label>
-      <label class="check-item"><input type="checkbox" value="ADD_CARRY"> Vai‑um (adição)</label>
-      <label class="check-item"><input type="checkbox" value="SUB_BORROW"> Empréstimo (subtração)</label>
-      <label class="check-item"><input type="checkbox" value="MUL_6_10"> Tabuadas 6–10</label>
-      <label class="check-item"><input type="checkbox" value="MUL_11_20"> Tabuadas 11–20</label>
-    </div>
-    <button type="button" class="btn-primary" id="btn-save-diff">Salvar</button>
-  </div>
+<div class="onb-body">
+<p id="onb-text"></p>
 </div>
-
+<div aria-label="Progresso do tutorial" class="onb-dots">
+<span class="onb-dot" id="onb-dot-1"></span>
+<span class="onb-dot" id="onb-dot-2"></span>
+<span class="onb-dot" id="onb-dot-3"></span>
+</div>
+<div class="onb-actions">
+<button class="onb-btn onb-skip" id="onb-skip" type="button">Pular</button>
+<button class="onb-btn onb-next" id="onb-next" type="button">Próximo</button>
+</div>
+</div>
+</div>
+<div aria-label="Selecionar dificuldades" aria-modal="true" class="modal-overlay hidden" id="difficulties-modal" role="dialog">
+<div class="modal-card">
+<div class="modal-head">
+<h2 class="modal-title">Dificuldades (foco do treino)</h2>
+<button aria-label="Fechar" class="modal-close" id="btn-close-diff" type="button">✕</button>
+</div>
+<p class="muted">Marque as dificuldades mais comuns da turma. O app vai priorizar dicas e microcorreções nesses pontos.</p>
+<div class="checklist" id="diff-list">
+<label class="check-item"><input type="checkbox" value="ADD_C10"/> Completar 10/20 (adição)</label>
+<label class="check-item"><input type="checkbox" value="ADD_CARRY"/> Vai‑um (adição)</label>
+<label class="check-item"><input type="checkbox" value="SUB_BORROW"/> Empréstimo (subtração)</label>
+<label class="check-item"><input type="checkbox" value="MUL_6_10"/> Tabuadas 6–10</label>
+<label class="check-item"><input type="checkbox" value="MUL_11_20"/> Tabuadas 11–20</label>
+</div>
+<button class="btn-primary" id="btn-save-diff" type="button">Salvar</button>
+</div>
+</div>
 </body>
 </html>

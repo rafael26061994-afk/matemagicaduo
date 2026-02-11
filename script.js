@@ -2217,9 +2217,12 @@ function ensureMultiplicationModal() {
                 gameState.multiplication.pendingLevel = lvl;
                 gameState.currentLevel = lvl;
 
-                // multiplicadores fixos 1–10
+                // multiplicadores fixos por tabuada (direto):
+                // - 0–10: x 1..10
+                // - 11–20: x 1..20
+                const maxMul = (i >= 11 ? 20 : 10);
                 gameState.multiplication.multMin = 1;
-                gameState.multiplication.multMax = 10;
+                gameState.multiplication.multMax = maxMul;
                 gameState.multiplication.roundMultipliers = null;
                 gameState.multiplication.roundPos = 0;
 
@@ -2227,7 +2230,7 @@ function ensureMultiplicationModal() {
                 const rr = getTabuadaRangeByLevel(lvl);
                 gameState.multiplication.trailMin = rr.min;
                 gameState.multiplication.trailMax = rr.max;
-                gameState.multiplication.trailRangeKey = `${rr.min}-${rr.max}|1-10`;
+                gameState.multiplication.trailRangeKey = `${rr.min}-${rr.max}|1-${gameState.multiplication.multMax}`;
 
                 saveMultiplicationConfig();
                 close();
@@ -2510,17 +2513,21 @@ case 'multiplication':
                     mulState.lockTabuada = t;
                     mulState.tabuada = t;
 
-                    // multiplicadores fixos 1–10, em ciclo embaralhado (evita repetir sempre o mesmo)
+                    // multiplicadores fixos por tabuada:
+                    // - 0–10: x 1..10
+                    // - 11–20: x 1..20
+                    const maxMul = (t >= 11 ? 20 : 10);
+
                     mulState.multMin = 1;
-                    mulState.multMax = 10;
+                    mulState.multMax = maxMul;
                     if (!Array.isArray(mulState.directMultipliers) || mulState.directMultipliers.length === 0) {
                         mulState.directMultipliers = [];
-                        for (let k = 1; k <= 10; k++) mulState.directMultipliers.push(k);
+                        for (let k = 1; k <= maxMul; k++) mulState.directMultipliers.push(k);
                         shuffleArray(mulState.directMultipliers);
                     }
                     const mVal = mulState.directMultipliers.pop();
 
-                    num1 = t;
+num1 = t;
                     num2 = mVal;
                 } else {
                     // Trilha: 70% pool fixo (50) + 30% gerador por regras (anti-decor)
@@ -2630,10 +2637,15 @@ function startGame(operation, level) {
     // mantém nível pendente para a multiplicação (evita faixa errada no 'Escolher tabuada')
     if(operation === 'multiplication' && gameState.multiplication){
         gameState.multiplication.pendingLevel = level;
-        // No modo 'Escolher tabuada', multiplicadores fixos 1–10
-        if(gameState.multiplication.mode === 'direct'){
+        // No modo 'Escolher tabuada', multiplicadores são fixos por tabuada:
+        // - 0–10: x 1..10
+        // - 11–20: x 1..20
+        if (gameState.multiplication.mode === 'direct' || gameState.multiplication.directLock === true) {
+            const t = Number.isInteger(gameState.multiplication.lockTabuada) ? gameState.multiplication.lockTabuada
+                : (Number.isInteger(gameState.multiplication.tabuada) ? gameState.multiplication.tabuada : 1);
+            const maxMul = (t >= 11 ? 20 : 10);
             gameState.multiplication.multMin = 1;
-            gameState.multiplication.multMax = 10;
+            gameState.multiplication.multMax = maxMul;
         }
     }
 gameState.isGameActive = true;
@@ -3454,7 +3466,7 @@ function attachEventListeners() {
             
             // MUDANÇA: Vai para a tela de seleção de nível
             exibirTela('level-selection-screen');
-            // Título grande + contexto (operações em tela cheia)
+            // Título grande: operação + escolha de nível
             try {
                 const mapName = {
                     addition: 'Adição',
@@ -3467,9 +3479,7 @@ function attachEventListeners() {
                 const op = gameState.currentOperation;
                 const name = mapName[op] || op;
                 const h = document.querySelector('#level-selection-screen h1');
-                const sub = document.querySelector('#level-selection-screen .op-subtitle');
                 if (h) h.textContent = `${name} — escolha o nível`;
-                if (sub) sub.textContent = `Você escolheu: ${name}. Agora selecione a dificuldade para iniciar.`;
             } catch (_) {}
             
             // Atualiza trilha (mapa) na tela de nível
