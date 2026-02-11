@@ -2229,7 +2229,7 @@ function ensureMultiplicationModal() {
                 saveMultiplicationConfig();
                 close();
                 startGame('multiplication', lvl);
-            });});
+            });
             b.addEventListener('pointerup', (ev) => { ev.preventDefault(); ev.stopPropagation(); b.click(); });
             grid.appendChild(b);
         }
