@@ -1,0 +1,1 @@
+# Ajustes v9\n- Leitura facilitada contextualizada por tipo de tarefa\n- Palavra-chave específica por família da questão\n- Pista visual menos genérica\n- Painel 'Compreender a questão' mais específico

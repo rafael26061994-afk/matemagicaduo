@@ -4,141 +4,109 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Matemágica - Jogo da Matemática</title>
+<title>PET — Programa de Estudo da Tabuada</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&amp;display=swap" rel="stylesheet"/>
 <link href="style.css" rel="stylesheet"/>
-<link href="manifest.webmanifest" rel="manifest"/>
+<meta name="description" content="PET — Programa de Estudo da Tabuada: aprender matemática com jogos, tecnologia e inclusão."/>
+<meta name="theme-color" content="#007bff"/>
+<meta name="color-scheme" content="light dark"/>
+
+<link rel="manifest" href="manifest.webmanifest"/>
+<link rel="icon" href="icon-192.png"/>
+<link rel="apple-touch-icon" href="icon-192.png"/>
+
+<meta property="og:type" content="website"/>
+<meta property="og:title" content="PET — Programa de Estudo da Tabuada"/>
+<meta property="og:description" content="Aprender matemática com jogos, tecnologia e inclusão."/>
+<meta property="og:image" content="icon-512.png"/>
+
 </head>
-<body class="light-mode">
+<body class="light-mode" data-version="1.14.1-cloud-v44">
+<a class="skip-link" href="#app">Pular para o conteúdo</a>
+<noscript><div class="noscript-warning">Este aplicativo precisa de JavaScript para funcionar.</div></noscript>
 <span class="libras-alert hidden" id="libras-alert"></span>
 <div id="confetti-container"></div>
-<div class="feedback-message hidden" id="feedback-message"></div>
-<div class="container">
-<div class="screen active" id="home-screen">
-<header class="home-header">
-<div aria-label="Mascotes do PET" class="pet-hero">
-<img alt="Mascotes do PET: Ferreirinha e Zezinho" id="main-logo" src="Sem titulo.png"/>
-<span aria-hidden="true" class="pet-spark s1">✦</span>
-<span aria-hidden="true" class="pet-spark s2">✧</span>
-<span aria-hidden="true" class="pet-spark s3">✦</span>
+<div class="feedback-message hidden" id="feedback-message">
+  <button type="button" id="feedback-close" class="feedback-close" aria-label="Fechar dica">×</button>
+  <span id="feedback-text"></span>
 </div>
+<div class="container" id="app" role="main">
+<div class="screen active" id="home-screen">
+<header>
+<img alt="Logo do Projeto" id="main-logo" src="Sem titulo.png"/>
 </header>
-<section aria-label="História do PET" class="pet-story">
-<h1 class="pet-story-title">PET — Programa de Estudo da Tabuada</h1>
-<p class="pet-story-subtitle">Aprender matemática com jogos, tecnologia e inclusão de verdade.</p>
+<div class="info-card" id="about-section">
+<h2 class="centered-title">PET — Programa de Estudo da Tabuada</h2>
+<p style="text-align:center; font-weight:600; margin-top:-6px;">
+                    Aprender matemática com jogos, tecnologia e inclusão de verdade.
+                </p>
 <p>
-    O Projeto PET nasceu em um encontro pedagógico da rede municipal de Contagem/MG, a partir de uma constatação simples:
-    muitos estudantes até “decoram”, mas não dominam a tabuada (e outros conteúdos) com segurança.
-    O que começou como uma ideia leve evoluiu para uma proposta sólida, criada para engajar, dar autonomia e respeitar o ritmo de cada estudante.
-  </p>
-<p><strong>Idealizado pelos professores Rafael Oliveira e Ronaldo Soares</strong>, o PET une competências complementares:</p>
-<ul class="pet-story-list">
+                    O Projeto PET nasceu em um encontro pedagógico da rede municipal de Contagem/MG, a partir de uma constatação simples:
+                    muitos estudantes até “decoram”, mas não dominam a tabuada (e outros conteúdos) com segurança.
+                    O que começou como uma ideia leve evoluiu para uma proposta sólida, criada para engajar, dar autonomia e respeitar o ritmo de cada estudante.
+                </p>
+<p>
+                    Idealizado pelos professores <strong>Rafael Oliveira (Ferreirinha)</strong> e <strong>Ronaldo Soares (Zezinho)</strong>, o PET une competências complementares:
+                </p>
+<ul>
 <li><strong>Rafael Oliveira</strong> — foco em autonomia, IA aplicada à educação e acessibilidade</li>
 <li><strong>Ronaldo Soares</strong> — criatividade, sensibilidade pedagógica e abordagem lúdica</li>
 </ul>
-<h2 class="pet-story-h2">Objetivo do PET</h2>
+<div class="objectives">
+<h3>Objetivo do PET</h3>
 <p>
-    Estimular o aprendizado de conteúdos de Matemática por meio de jogos, tornando o estudo mais participativo, consistente e motivador — sem infantilizar.
-  </p>
-<h2 class="pet-story-h2">Inclusão no centro (não como detalhe)</h2>
+                        Estimular o aprendizado de conteúdos de Matemática por meio de jogos, tornando o estudo mais participativo, consistente e motivador — sem infantilizar.
+                    </p>
+<h3>Inclusão no centro (não como detalhe)</h3>
 <p>
-    No PET, inclusão não é “tema”: é pilar. A vivência pessoal de Rafael com a monoparesia orienta escolhas concretas para que o aprendizado seja mais acessível,
-    mais humano e mais democrático — com tecnologia usada como ponte, não como barreira.
-  </p>
-<h2 class="pet-story-h2">Onde acontece</h2>
+                        No PET, inclusão não é “tema”: é pilar. A vivência pessoal de Rafael com a monoparesia orienta escolhas concretas para que o aprendizado seja mais acessível,
+                        mais humano e mais democrático — com tecnologia usada como ponte, não como barreira.
+                    </p>
+<h3>Onde acontece</h3>
 <p>
-    Escola Municipal Vereador José Ferreira de Aguiar<br/>
-    Bairro Icaivera — Contagem/MG
-  </p>
-<h2 class="pet-story-h2">Nossos eixos</h2>
-<ul class="pet-story-list">
-<li><strong>Matemática em Jogo</strong>: aprendizagem ativa, lúdica e envolvente</li>
-<li><strong>Raciocínio Lógico</strong>: pensamento estratégico e resolução de problemas</li>
-<li><strong>Inclusão Radical</strong>: valorização das singularidades de cada estudante</li>
-<li><strong>Tecnologia Ética</strong>: IA como suporte ao desenvolvimento humano, com responsabilidade</li>
+<strong>Escola Municipal Vereador José Ferreira de Aguiar</strong><br/>
+                        Bairro Icaivera — Contagem/MG
+                    </p>
+<h3>Nossos eixos</h3>
+<ul>
+<li><strong>Matemática em Jogo:</strong> aprendizagem ativa, lúdica e envolvente</li>
+<li><strong>Raciocínio Lógico:</strong> pensamento estratégico e resolução de problemas</li>
+<li><strong>Inclusão Radical:</strong> valorização das singularidades de cada estudante</li>
+<li><strong>Tecnologia Ética:</strong> IA como suporte ao desenvolvimento humano, com responsabilidade</li>
 </ul>
-</section>
-<section aria-label="Escolher modo de uso" class="mode-picker">
-<div class="mode-picker-row">
-<span class="mode-picker-title">Modo de uso:</span>
-<div aria-label="Modo de uso (Celular ou PC)" class="mode-picker-buttons" role="group">
-<button class="mode-btn" id="btn-mode-mobile" type="button">📱 Celular</button>
-<button class="mode-btn" id="btn-mode-pc" type="button">🖥️ PC</button>
 </div>
 </div>
-<p class="mode-picker-hint">Escolha “PC” se estiver usando teclado (setas para navegar nas alternativas).</p>
-</section>
-<section aria-label="Continuar campanha" class="info-card hero-card">
-<div class="hero-row">
-<div class="hero-text">
-<h2 class="hero-title">Continuar campanha</h2>
-<p class="hero-sub" id="home-campaign-sub">Escolha uma campanha para começar.</p>
-</div>
-<div class="home-cta-stack">
-<button class="home-cta-secondary" id="btn-continue-campaign" type="button">▶ Continuar</button>
-</div>
-<div class="daily-goal">
-<div class="daily-row">
-<span class="daily-text" id="daily-progress-text">Meta do dia: 0/10</span>
-<span class="pill" id="streak-text">Sequência: 0</span>
-</div>
-<div aria-hidden="true" class="bar">
-<div class="bar-fill" id="daily-progress-bar" style="width:0%"></div>
-</div>
-</div>
-</div></section>
-<div aria-label="Atalhos" class="quick-actions">
-<button class="quick-btn primary-cta" id="btn-open-campaign" type="button">🚀 Começar agora</button>
-<button class="quick-btn" id="btn-open-review" type="button">🧠 Revisão do dia</button>
-<button class="quick-btn" id="btn-minigame-day" type="button">⚡ Minigame 3 min</button>
-</div>
-<section aria-label="Escolha de campanha" class="info-card campaign-picker">
-<div aria-label="Campanhas" class="tabs" role="tablist">
-<button aria-selected="true" class="tab-btn active" id="campaign-pick-base" role="tab" type="button">Base (6º–7º)</button>
-<button aria-selected="false" class="tab-btn" id="campaign-pick-reforco" role="tab" type="button">Reforço (8º–9º)</button>
-</div>
-<p class="muted">Lições curtas, progresso claro e revisão inteligente.</p>
-</section>
-<section class="section">
-<div class="section-head">
-<h3 class="section-title">Modo livre</h3>
-<p class="section-sub">Escolha uma operação e treine no seu ritmo.</p>
-</div>
+<p class="call-to-action-paragraph">Escolha uma operação para começar e treinar seu cérebro.</p>
 <div class="operation-grid">
-<button class="operation-card" data-operation="addition" type="button"><h3>Adição (+)</h3></button>
-<button class="operation-card" data-operation="subtraction" type="button"><h3>Subtração (-)</h3></button>
-<button class="operation-card" data-operation="multiplication" type="button"><h3>Multiplicação (x)</h3></button>
-<button class="operation-card" data-operation="division" type="button"><h3>Divisão (÷)</h3></button>
-<button class="operation-card" data-operation="potenciacao" type="button"><h3>Potenciação (aⁿ)</h3></button>
-<button class="operation-card" data-operation="radiciacao" type="button"><h3>Radiciação (√)</h3></button>
+<button class="operation-card" data-operation="addition" title="Adição (+): somar valores. Dica: faça decomposição e complete dezenas."><h3>Adição (+)</h3></button>
+<button class="operation-card" data-operation="subtraction" title="Subtração (-): tirar/diferença. Dica: use a reta numérica e compensação."><h3>Subtração (-)</h3></button>
+<button class="operation-card" data-operation="multiplication" title="Multiplicação (×): adição repetida. Dica: use padrões e propriedades."><h3>Multiplicação (x)</h3></button>
+<button class="operation-card" data-operation="division" title="Divisão (÷): repartir/medir. Dica: pense na multiplicação inversa."><h3>Divisão (÷)</h3></button>
+<button class="operation-card" data-operation="potenciacao" title="Potenciação (aⁿ): multiplicação repetida. Dica: cuidado com expoente."><h3>Potenciação (aⁿ)</h3></button>
+<button class="operation-card" data-operation="radiciacao" title="Radiciação (√): operação inversa da potenciação. Dica: use quadrados perfeitos."><h3>Radiciação (√)</h3></button>
 </div>
-</section>
-<section class="section">
-<div class="section-head">
-<h3 class="section-title">Ferramentas</h3>
-<p class="section-sub">Resultados e acompanhamento sem complicação.</p>
+<button class="main-btn" id="btn-show-ranking" title="Veja os melhores recordes salvos neste dispositivo.">🏆 Ver Recordes</button>
+<button type="button" class="main-btn" id="btn-continue-session" title="Retomar o andamento salvo neste dispositivo.">▶ Continuar</button>
+<button type="button" class="main-btn" id="btn-new-game" title="Apagar o andamento salvo neste dispositivo e começar do zero.">🆕 Novo Jogo</button>
+<div class="pet-progress-mini" id="pet-progress-mini">
+<div class="pet-streak-chip" id="pet-streak-chip" role="status">🔥 Sequência: 0 dias</div>
+<button type="button" id="btn-pet-achievements" class="btn-secondary main-btn" aria-label="Abrir conquistas">🎖 Conquistas</button>
 </div>
-<button class="main-btn" id="btn-show-ranking" type="button">🏆 Ver Recordes</button>
-<a class="main-btn link-btn" href="relatorio.html">📄 Relatório do estudante</a>
-<a class="main-btn link-btn" href="family.html">👨‍👩‍👧 Cartão para a família</a>
-<a class="main-btn link-btn" href="professor.html">👩‍🏫 Painel do professor</a>
-</section>
-<section class="section">
-<div class="section-head">
-<h3 class="section-title">Configurações</h3>
-<p class="section-sub">Ajuste o app ao seu jeito.</p>
-</div>
-<div class="ui-prefs">
-<button class="setting-btn" id="btn-text-smaller" type="button"><span class="icon">A-</span> Texto</button>
-<button class="setting-btn" id="btn-text-bigger" type="button"><span class="icon">A+</span> Texto</button>
-<button class="setting-btn" id="toggle-high-contrast" type="button"><span class="icon">◐</span> Alto Contraste</button>
-<button class="setting-btn" id="toggle-reduce-motion" type="button"><span class="icon">⏸</span> Reduzir Movimento</button>
-<button class="setting-btn" id="toggle-layout-mode" type="button"><span class="icon">📱</span> Layout: Auto</button>
-<button class="setting-btn" id="toggle-mentors" type="button"><span class="icon">🎯</span> Dificuldades</button>
-</div>
+<button class="main-btn" id="btn-open-student-panel" title="Veja seu desempenho, receba dicas e exporte seu progresso para o professor.">👩‍🎓 Área do Estudante</button>
+<button class="main-btn" id="btn-open-tutorial-video" title="Assista a um vídeo curto explicando todas as funções do PET.">🎥 Vídeo: como usar</button>
 <div class="settings-bar">
 <button class="setting-btn" id="toggle-night-mode">
 <span class="icon">🌙</span> Modo Noite
                 </button>
+<div class="layout-toggle">
+<span class="layout-label">Layout:</span>
+<button class="layout-btn active" id="layout-auto">Auto</button>
+<button class="layout-btn" id="layout-mobile">Celular</button>
+<button class="layout-btn" id="layout-desktop">PC</button>
+</div>
+
 <div class="modes-toggle">
                     Modo:
                     <button class="mode-btn active" id="mode-rapido">Rápido</button>
@@ -153,48 +121,56 @@
 <button class="setting-btn toggle-access" id="toggle-libras">
 <span class="icon">🤟</span> Modo Libras
                 </button>
-</div>
-</section>
-<section class="section mentors-section">
-<div class="section-head">
-<h3 class="section-title">Mentores</h3>
-<p class="section-sub">Falas curtas (opcionais) para guiar o treino.</p>
+
+<button id="zoom-out" class="setting-btn toggle-access" title="Diminuir tela">
+<span class="icon">➖</span> Tela
+</button>
+<button id="zoom-in" class="setting-btn toggle-access" title="Aumentar tela">
+<span class="icon">➕</span> Tela
+</button>
+<button id="toggle-contrast" class="setting-btn toggle-access" title="Alto contraste">
+<span class="icon">⚫⚪</span> Contraste
+</button>
+
+
+<button id="toggle-dyslexia" class="setting-btn toggle-access" title="Modo Dislexia: melhora a leitura com mais espaçamento e conforto visual.">
+<span class="icon">🔤</span> Dislexia
+</button>
+<button id="toggle-calm" class="setting-btn toggle-access" title="Modo Calmo: reduz estímulos (sons/alertas) para mais foco e conforto.">
+<span class="icon">🧘</span> Calmo
+</button>
+<button id="toggle-extra-time" class="setting-btn toggle-access" title="Tempo+ (Modo Rápido): dobra o tempo sem precisar ativar voz ou libras.">
+<span class="icon">⏳</span> Tempo+
+</button>
+<button id="toggle-vibrate" class="setting-btn toggle-access" title="Vibração (celular): alerta tátil nos 5 segundos finais.">
+<span class="icon">📳</span> Vibração
+</button>
 </div>
 <div id="creators-section">
 <h3>Criado por:</h3>
-<div class="creators-grid">
-<div class="creator-card">
-<img alt="Avatar de Ronaldo" class="avatar" src="ronaldo.png"/>
-<p>Prof.: Ronaldo Soares</p>
-</div>
-<div class="creator-card">
+<div class="creators-grid"><div class="creator-card">
 <img alt="Avatar de Rafael" class="avatar" src="rafael.png"/>
 <p>Prof.: Rafael Oliveira</p>
+</div><div class="creator-card">
+<img alt="Avatar de Ronaldo" class="avatar" src="ronaldo.png"/>
+<p>Prof.: Ronaldo Soares</p>
+</div></div>
 </div>
-</div>
-</div>
-</section>
-</div>
-<div class="screen" id="campaign-screen">
-<header class="game-header">
-<button class="btn-secondary btn-voltar-home" type="button">Voltar</button>
-<h1 id="campaign-title">Campanha</h1>
-</header>
-<div class="info-card campaign-top">
-<div aria-label="Campanhas" class="tabs" role="tablist">
-<button aria-selected="true" class="tab-btn active" id="campaign-tab-base" role="tab" type="button">Base (6º–7º)</button>
-<button aria-selected="false" class="tab-btn" id="campaign-tab-reforco" role="tab" type="button">Reforço (8º–9º)</button>
-</div>
-<p class="muted" id="campaign-desc">Plano: lições curtas, foco e revisão.</p>
-</div>
-<div aria-label="Mapa da campanha" class="campaign-map" id="campaign-map"></div>
 </div>
 <div class="screen" id="level-selection-screen">
 <header class="game-header">
-<button class="btn-secondary btn-voltar-home" type="button">← Voltar</button>
-<h1 id="level-screen-title">Escolha o nível</h1>
+<button class="btn-secondary btn-voltar-home">Mudar Operação</button>
+<h1>Configuração e Nível</h1>
 </header>
+<div class="info-card">
+<h2>Selecione a Dificuldade</h2>
+<p>O nível de dificuldade define a complexidade das questões e, no Modo Rápido, o tempo limite, que é dobrado caso a Acessibilidade (Voz ou Libras) esteja ativa, conforme a regra do jogo.</p>
+</div>
 <div class="level-selection">
+<button class="level-btn hidden" data-level="apprentice" id="level-apprentice-btn">
+<h3>Aprendiz (🌱)</h3>
+<p>Somente para Multiplicação. Trilha com 10 etapas de compreensão inicial (50 questões no total), Modo Estudo como padrão e mais tempo no Modo Rápido.</p>
+</button>
 <button class="level-btn" data-level="easy">
 <h3>Fácil (👶)</h3>
 <p>Ideal para iniciantes. Números e tabuadas menores (Tempo Base: 15s).</p>
@@ -208,6 +184,9 @@
 <p>Para mestres. Potências e raízes complexas, tabuadas e números altos (Tempo Base: 45s).</p>
 </button>
 </div>
+<p style="text-align: center; margin-top: 20px; font-weight: 600; color: var(--cor-secundaria);">
+                O Modo de Jogo (Rápido/Estudo) e Acessibilidade já foram definidos. Clique em um nível para iniciar o desafio!
+            </p>
 </div>
 <div class="screen" id="game-screen">
 <header class="game-header">
@@ -217,37 +196,12 @@
 <span id="player-xp">XP: 0</span>
 </div>
 </header>
-<div aria-label="Mentor" class="mentor-float" id="mentor-float">
-<img alt="Mentor" class="mentor-avatar" id="mentor-avatar" src="ronaldo.png"/>
-<div aria-live="polite" class="mentor-bubble hidden" id="mentor-bubble" role="status"></div>
-</div>
 <div class="time-container" id="timer-container">
 <div id="time-bar" style="width: 100%; background-color: var(--cor-sucesso);"></div>
 </div>
 <div class="question-area info-card">
 <p id="question-counter">Questão: 1/20</p>
 <h1 id="question-text">5 + 5 = ?</h1>
-</div>
-<div aria-label="Ferramentas" class="game-tools">
-<button class="tool-btn" id="btn-hint" type="button">🧩 Dica</button>
-</div>
-<div aria-label="Dicas" class="hint-panel hidden" id="hint-panel" role="region">
-<div class="hint-head">
-<span class="hint-title" id="hint-title">Tática</span>
-<button aria-label="Fechar" class="hint-close" id="btn-close-hint" type="button">✕</button>
-</div>
-<div class="hint-body" id="hint-body"></div>
-<button class="btn-primary hint-next" id="btn-next-hint" type="button">Próxima dica</button>
-</div>
-<div aria-label="Checkpoint rápido" aria-modal="true" class="modal-overlay hidden" id="microcheck-overlay" role="dialog">
-<div class="modal-card">
-<h3 class="modal-title">Checkpoint rápido</h3>
-<p class="modal-text" id="microcheck-question">Pergunta</p>
-<div class="modal-actions">
-<button class="btn-secondary" id="microcheck-btn-a" type="button">A</button>
-<button class="btn-primary" id="microcheck-btn-b" type="button">B</button>
-</div>
-</div>
 </div>
 <div class="options-grid answers-grid">
 <button class="answer-option btn-answer">
@@ -268,17 +222,19 @@
                     ⏱️ Prorrogar Tempo (<span id="extend-time-cost">100</span> XP)
                 </button>
 <button class="btn-action" id="btn-show-answer" style="display: none;">
-                    💡 Mostrar Resposta
+                    💡 Abrir apoios
                 </button>
 </div>
 </div>
 <div class="screen" id="result-screen">
-<header>
+<header class="result-header">
 <h1>Resultado da Rodada</h1>
+<button type="button" class="result-close-btn" id="btn-close-result" aria-label="Fechar resultado e voltar para a página inicial">×</button>
 </header>
 <div class="info-card result-summary">
 <h2 style="text-align: center;">Pontuação Final: <span id="final-score">0</span></h2>
 <p class="suggestion" id="study-suggestion"></p>
+<p class="result-performance-explanation" id="result-performance-explanation"></p>
 <div class="result-details">
 <div class="result-item">
 <span class="stat-label">Acertos:</span>
@@ -326,66 +282,54 @@
 <button class="btn-action btn-secondary" disabled="" id="btn-clear-errors">Limpar Erros Salvos</button>
 </div>
 </div>
+<div id="toast-root" aria-live="polite" aria-atomic="true"></div>
+<div id="modal-root" class="hidden" aria-hidden="true"></div>
+<div id="tutorial-overlay" class="tutorial-overlay hidden" aria-hidden="true">
+  <div class="tutorial-overlay__backdrop" data-close-tutorial="1"></div>
+  <div class="tutorial-overlay__box" role="dialog" aria-modal="true" aria-label="Vídeo: como usar o PET">
+    <button type="button" id="tutorial-overlay-close" class="tutorial-overlay__close" aria-label="Fechar vídeo" title="Fechar vídeo">×</button>
+    <video id="tutorial-overlay-video" class="tutorial-overlay__video" controls playsinline preload="metadata">
+      <source src="./tutorial.mp4" type="video/mp4" />
+      Seu navegador não suporta vídeo.
+    </video>
+    <div class="tutorial-overlay__hint">Dica: comece pela <strong>Adição</strong> no <strong>Modo Estudo</strong> e siga a trilha.</div>
+  </div>
+</div>
+
+<div id="sw-update-banner" class="sw-update-banner hidden" aria-hidden="true">
+  <div class="sw-update-inner" role="status" aria-live="polite">
+    <div class="sw-update-text">
+      <strong>Atualização disponível</strong>
+      <span class="sw-update-sub">Para aplicar melhorias e correções, atualize o app.</span>
+    </div>
+    <div class="sw-update-actions">
+      <button type="button" id="sw-update-btn" class="sw-update-btn primary">Atualizar</button>
+      <button type="button" id="sw-update-dismiss" class="sw-update-btn">Agora não</button>
+    </div>
+  </div>
+</div>
+
+
 <audio id="alert-sound" preload="auto" src="alert-sound.mp3"></audio>
-<nav aria-label="Navegação" class="bottom-nav">
-<button aria-label="Home" class="nav-item active" id="nav-home" type="button">
-<span class="nav-ico">🏠</span><span class="nav-txt">Home</span>
-</button>
-<button aria-label="Campanha" class="nav-item" id="nav-campaign" type="button">
-<span class="nav-ico">🗺️</span><span class="nav-txt">Campanha</span>
-</button>
-<button aria-label="Revisão" class="nav-item" id="nav-review" type="button">
-<span class="nav-ico">🧠</span><span class="nav-txt">Revisão</span>
-</button>
-<button aria-label="Perfil" class="nav-item" id="nav-profile" type="button">
-<span class="nav-ico">👤</span><span class="nav-txt">Perfil</span>
-</button>
-</nav>
 <div class="enabled" vw="">
 <div class="active" vw-access-button=""></div>
 <div vw-plugin-wrapper="">
 <div class="vw-plugin-top-wrapper"></div>
 </div>
 </div>
+<script src="https://vlibras.gov.br/app/vlibras-plugin.js"></script>
+<script>
+        // Inicialização do VLibras
+        new window.VLibras.Widget('https://vlibras.gov.br/app');
+    </script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/pet-config.js"></script>
+<script src="js/pet-local-driver.js"></script>
+<script src="js/pet-auth.js"></script>
+<script src="js/pet-cloud-driver.js"></script>
+<script src="js/pet-sync.js"></script>
+<script src="js/pet-repositories.js"></script>
+<script src="js/pet-bridge.js"></script>
 <script src="script.js"></script>
-<div id="vlibras-root"></div>
-<script src="a11y.js"></script>
-<!-- Onboarding (3 fases — uma por tela) -->
-<div aria-hidden="true" aria-label="Tutorial inicial" aria-modal="true" class="onb-overlay hidden" id="onboarding-modal" role="dialog">
-<div class="onb-card">
-<div class="onb-header">
-<h2 id="onb-title">PET</h2>
-</div>
-<div class="onb-body">
-<p id="onb-text"></p>
-</div>
-<div aria-label="Progresso do tutorial" class="onb-dots">
-<span class="onb-dot" id="onb-dot-1"></span>
-<span class="onb-dot" id="onb-dot-2"></span>
-<span class="onb-dot" id="onb-dot-3"></span>
-</div>
-<div class="onb-actions">
-<button class="onb-btn onb-skip" id="onb-skip" type="button">Pular</button>
-<button class="onb-btn onb-next" id="onb-next" type="button">Próximo</button>
-</div>
-</div>
-</div>
-<div aria-label="Selecionar dificuldades" aria-modal="true" class="modal-overlay hidden" id="difficulties-modal" role="dialog">
-<div class="modal-card">
-<div class="modal-head">
-<h2 class="modal-title">Dificuldades (foco do treino)</h2>
-<button aria-label="Fechar" class="modal-close" id="btn-close-diff" type="button">✕</button>
-</div>
-<p class="muted">Marque as dificuldades mais comuns da turma. O app vai priorizar dicas e microcorreções nesses pontos.</p>
-<div class="checklist" id="diff-list">
-<label class="check-item"><input type="checkbox" value="ADD_C10"/> Completar 10/20 (adição)</label>
-<label class="check-item"><input type="checkbox" value="ADD_CARRY"/> Vai‑um (adição)</label>
-<label class="check-item"><input type="checkbox" value="SUB_BORROW"/> Empréstimo (subtração)</label>
-<label class="check-item"><input type="checkbox" value="MUL_6_10"/> Tabuadas 6–10</label>
-<label class="check-item"><input type="checkbox" value="MUL_11_20"/> Tabuadas 11–20</label>
-</div>
-<button class="btn-primary" id="btn-save-diff" type="button">Salvar</button>
-</div>
-</div>
 </body>
 </html>

@@ -822,8 +822,6 @@ body.dark-mode .mm-cycle-progress {
   padding: 16px;
 }
 .teacher-overlay.hidden { display: none; }
-.hidden { display: none !important; }
-[hidden] { display: none !important; }
 
 .teacher-panel {
   width: min(560px, 95vw);
@@ -2520,15 +2518,13 @@ body.profile-lock-active {
 }
 
 
-/* Inclusão pedagógica — leitura facilitada, pistas visuais, dica e resposta alternativa */
+/* Inclusão pedagógica — leitura facilitada, pistas visuais e resposta alternativa */
 .inclusive-learning-panel.hidden,
 .inclusive-learning-body.hidden,
 .inclusive-learning-panel[hidden],
 .inclusive-learning-body[hidden],
 .inclusive-learning-toggle.hidden,
-.inclusive-learning-toggle[hidden],
-.inclusive-section-body.hidden,
-.inclusive-section-body[hidden]{ display:none !important; }
+.inclusive-learning-toggle[hidden]{ display:none !important; }
 .inclusive-learning-panel{
   margin-top:12px;
 }
@@ -2588,44 +2584,24 @@ body.profile-lock-active {
   background:rgba(0,0,0,.06);
 }
 .inclusive-learning-keyword{ background:rgba(0,102,204,.10); }
-.inclusive-learning-sections{
-  display:flex;
-  flex-direction:column;
+.inclusive-learning-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
   gap:10px;
 }
-.inclusive-learning-section{
+.inclusive-learning-card{
   border:1px solid rgba(0,0,0,.06);
   border-radius:14px;
-  background:rgba(255,255,255,.55);
-  overflow:hidden;
-}
-.inclusive-section-toggle{
-  width:100%;
-  appearance:none;
-  border:0;
-  background:transparent;
-  text-align:left;
   padding:12px;
+  background:rgba(255,255,255,.55);
+}
+.inclusive-learning-label{
+  display:block;
   font-weight:700;
   color:var(--cor-secundaria);
-  cursor:pointer;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:8px;
+  margin-bottom:6px;
 }
-.inclusive-section-toggle::after{
-  content:'Abrir';
-  font-size:.82rem;
-  color:var(--cor-texto-secundario, #5f6b7a);
-}
-.inclusive-section-toggle.is-open::after{ content:'Ocultar'; }
-.inclusive-section-body{
-  padding:0 12px 12px;
-}
-.inclusive-section-body p,
-.inclusive-section-body div{ line-height:1.45; }
-.inclusive-section-body p{ margin:0; }
+.inclusive-learning-card p{ margin:0; line-height:1.45; }
 .ils-visual-title{
   font-weight:700;
   margin-bottom:4px;
@@ -2727,7 +2703,7 @@ body.profile-lock-active {
   font-size:1rem;
 }
 body.dark-mode .inclusive-learning-panel,
-body.dark-mode .inclusive-learning-section,
+body.dark-mode .inclusive-learning-card,
 body.dark-mode .alternative-response-body,
 body.dark-mode .ils-group-box,
 body.dark-mode .ils-place-card{
@@ -2739,7 +2715,8 @@ body.dark-mode .inclusive-learning-keyword{
   background:rgba(255,255,255,.12);
 }
 @media (max-width: 760px){
-    .ils-place-grid{
+  .inclusive-learning-grid,
+  .ils-place-grid{
     grid-template-columns:1fr;
   }
   .alternative-response-row{

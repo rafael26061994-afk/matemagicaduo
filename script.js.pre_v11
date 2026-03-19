@@ -284,9 +284,6 @@ const gameState = {
     attemptsThisQuestion: 0,
     maxAttemptsPerQuestion: 2,
     answerLocked: false,
-    questionAttemptStartedAt: 0,
-    sessionStartedAt: 0,
-    sessionKey: '',
     // Treino de erros
     isTrainingErrors: false,
     trainingQueue: [],
@@ -849,31 +846,6 @@ function loadSavedPetSession() {
 }
 function clearSavedPetSession() {
     try { profileStorageRemove(PET_SESSION_KEY); } catch (_) {}
-    try {
-        if (window.PETLocalDriver && window.PETLocalDriver.writeLocalGameSnapshot && gameState.activeProfileId) {
-            window.PETLocalDriver.writeLocalGameSnapshot(gameState.activeProfileId, null);
-        }
-    } catch (_) {}
-    try { scheduleCloudProgressSync(220); } catch (_) {}
-}
-function buildCloudProgressSnapshotForSync(profileId = null) {
-    const resolvedProfileId = profileId || gameState.activeProfileId || PROFILE_GUEST_ID;
-    const progress = loadPetProgress();
-    const currentSession = loadSavedPetSession();
-    const composed = {
-        ...(progress && typeof progress === 'object' ? JSON.parse(JSON.stringify(progress)) : {}),
-        updatedAt: new Date().toISOString(),
-        currentSession: (currentSession && typeof currentSession === 'object' && currentSession.isGameActive) ? JSON.parse(JSON.stringify(currentSession)) : null
-    };
-    try {
-        if (window.PETLocalDriver && window.PETLocalDriver.writeLocalProgress && resolvedProfileId) {
-            window.PETLocalDriver.writeLocalProgress(resolvedProfileId, composed);
-        }
-        if (window.PETLocalDriver && window.PETLocalDriver.writeLocalGameSnapshot && resolvedProfileId) {
-            window.PETLocalDriver.writeLocalGameSnapshot(resolvedProfileId, composed.currentSession || null);
-        }
-    } catch (_) {}
-    return composed;
 }
 function buildPetSessionSnapshot() {
     const q = gameState.currentQuestion;
@@ -969,34 +941,9 @@ function savePetSessionSnapshotNow() {
         if (!gameState.isGameActive || !gameState.currentQuestion) return;
         const snap = buildPetSessionSnapshot();
         profileStorageSetJson(PET_SESSION_KEY, snap);
-        try {
-            if (window.PETLocalDriver && window.PETLocalDriver.writeLocalGameSnapshot && gameState.activeProfileId) {
-                window.PETLocalDriver.writeLocalGameSnapshot(gameState.activeProfileId, snap);
-            }
-        } catch (_) {}
-        try { buildCloudProgressSnapshotForSync(); } catch (_) {}
-        try { scheduleCloudProgressSync(900); } catch (_) {}
     } catch (_) {}
 }
 let __petSessionSaveTimer = null;
-let __petCloudProgressSyncTimer = null;
-function scheduleCloudProgressSync(delay = 900) {
-    try {
-        if (__petCloudProgressSyncTimer) clearTimeout(__petCloudProgressSyncTimer);
-        __petCloudProgressSyncTimer = setTimeout(async () => {
-            __petCloudProgressSyncTimer = null;
-            try {
-                if (!isCloudFeatureConfigured || !isCloudFeatureConfigured()) return;
-                const ctx = (window.PETBridge && window.PETBridge.getActiveProfileContext) ? window.PETBridge.getActiveProfileContext() : null;
-                if (!ctx || !ctx.deviceProfileId || ctx.isGuest) return;
-                const session = await getCloudSessionSafe();
-                if (!session) return;
-                const payload = buildCloudProgressSnapshotForSync(ctx.deviceProfileId);
-                await queueCloudSyncForCurrentProfile('progress', payload);
-            } catch (_) {}
-        }, Math.max(120, Number(delay) || 900));
-    } catch (_) {}
-}
 function savePetSessionSoon() {
     try {
         if (__petSessionSaveTimer) clearTimeout(__petSessionSaveTimer);
@@ -1754,7 +1701,7 @@ function loadPetProgress() {
 function savePetProgress(p) {
     try {
         profileStorageSetJson(PET_PROGRESS_KEY, { ...p, updatedAt: Date.now() });
-        try { queueCloudSyncForCurrentProfile('progress', buildCloudProgressSnapshotForSync()); } catch (_) {}
+        try { queueCloudSyncForCurrentProfile('progress'); } catch (_) {}
     } catch (_) {}
 }
 function awardPetBadge(p, id) {
@@ -2732,8 +2679,6 @@ function recordPetCompletedSession({ sessionType = 'sessao', upd = null, bonusAp
         const diagSummary = buildSessionDiagnosticsSummary(gameState.sessionDiagnostics);
         const entry = {
             id: `${endedAt}-${Math.random().toString(16).slice(2)}`,
-            clientSessionId: String(gameState.sessionKey || `sessao-${gameState.sessionStartedAt || endedAt}`),
-            sessionKey: String(gameState.sessionKey || `sessao-${gameState.sessionStartedAt || endedAt}`),
             endedAt,
             dateKey: petDateKeyLocal(new Date(endedAt)),
             sessionType: String(sessionType || 'sessao'),
@@ -3004,7 +2949,7 @@ function refreshPetProgressMini() {
     chip.title = `Recorde: ${Number(p.bestStreak || 0)} dia(s) • Sessões: ${Number(p.totalSessions || 0)} • Questões: ${Number(p.totalAnswered || 0)}`;
 }
 // Home global capture desativado para evitar cliques duplicados.
-try { window.openPetAchievementsModalSafe = openPetAchievementsModalSafe; } catch (_) {}
+try { window.openPetAchievementsModal = openPetAchievementsModalSafe; } catch (_) {}
 function openPetAchievementsFallbackModal() {
     try {
         const p = loadPetProgress();
@@ -3497,7 +3442,7 @@ function saveStudentProfile(profile) {
     gameState.studentProfile = safe;
     if (!isGuestProfileActive()) {
         updateStoredProfileMeta(gameState.activeProfileId, safe);
-        try { syncCloudProfileMetaForCurrentProfile().catch(() => {}); } catch (_) {}
+        try { syncCloudProfileMetaForCurrentProfile(); } catch (_) {}
     }
     syncProfileButtonLabel();
     return safe;
@@ -4010,7 +3955,6 @@ function ensureProfileUI() {
               <div class="teacher-row" style="margin-top: 12px; gap: 8px; flex-wrap: wrap;">
                 <button id="profile-cloud-signin" class="btn-action" type="button">Entrar na nuvem</button>
                 <button id="profile-cloud-signup" class="btn-action btn-secondary" type="button">Criar conta online</button>
-                <button id="profile-cloud-recover" class="btn-action btn-secondary" type="button">Recuperar senha</button>
                 <button id="profile-cloud-link" class="btn-action btn-secondary" type="button">Vincular perfil atual</button>
                 <button id="profile-cloud-sync" class="btn-action btn-secondary" type="button">Sincronizar agora</button>
                 <button id="profile-cloud-signout" class="btn-action btn-secondary" type="button" style="display:none;">Sair da conta online</button>
@@ -4036,9 +3980,8 @@ function ensureProfileUI() {
             closeProfileOverlay(true);
             setTimeout(() => { try { window.location.reload(); } catch (_) {} }, 40);
         });
-        overlay.querySelector('#profile-guest').addEventListener('click', async () => {
+        overlay.querySelector('#profile-guest').addEventListener('click', () => {
             activateGuestProfileContext();
-            try { await enforceCloudIsolationForProfile(PROFILE_GUEST_ID, { silent: true }); } catch (_) {}
             closeProfileOverlay(true);
             if (__profileForceLock) resolveProfileGate(true);
             else {
@@ -4046,7 +3989,7 @@ function ensureProfileUI() {
                 setTimeout(() => { try { window.location.reload(); } catch (_) {} }, 40);
             }
         });
-        overlay.querySelector('#profile-enter').addEventListener('click', async () => {
+        overlay.querySelector('#profile-enter').addEventListener('click', () => {
             const selected = __profileSelectedId ? getStoredProfile(__profileSelectedId) : null;
             const pin = normalizePin(overlay.querySelector('#profile-login-pin').value);
             if (!selected) {
@@ -4054,11 +3997,10 @@ function ensureProfileUI() {
                 return;
             }
             if (!verifyStoredProfilePin(selected.id, pin)) {
-                showFeedbackMessage('PIN inválido. Tente novamente.', 'error', 1800);
+                showFeedbackMessage('PIN inválido.', 'error', 1800);
                 return;
             }
             activateStoredProfileContext(selected.id);
-            try { await enforceCloudIsolationForProfile(selected.id, { silent: true }); } catch (_) {}
             closeProfileOverlay(true);
             if (__profileGateResolver) resolveProfileGate(true);
             else {
@@ -4066,7 +4008,7 @@ function ensureProfileUI() {
                 setTimeout(() => { try { window.location.reload(); } catch (_) {} }, 40);
             }
         });
-        overlay.querySelector('#profile-save-current').addEventListener('click', async () => {
+        overlay.querySelector('#profile-save-current').addEventListener('click', () => {
             const meta = {
                 name: overlay.querySelector('#profile-name').value,
                 turma: overlay.querySelector('#profile-turma').value,
@@ -4096,17 +4038,12 @@ function ensureProfileUI() {
                 __profileSelectedId = created.id;
                 __profileCreateMode = false;
                 activateStoredProfileContext(created.id);
-                try { await enforceCloudIsolationForProfile(created.id, { silent: true }); } catch (_) {}
                 closeProfileOverlay(true);
                 if (__profileGateResolver) resolveProfileGate(true);
                 else {
                     setProfileBootToken(created.id);
                     setTimeout(() => { try { window.location.reload(); } catch (_) {} }, 40);
                 }
-                return;
-            }
-            if (selected.id !== gameState.activeProfileId || gameState.isGuestProfile) {
-                showFeedbackMessage('Entre no perfil com o PIN correto antes de alterar este perfil neste dispositivo.', 'error', 2400);
                 return;
             }
             updateStoredProfileMeta(selected.id, safeMeta);
@@ -4138,15 +4075,11 @@ function ensureProfileUI() {
                 const result = await window.PETAuth.signUpWithEmail(email, password);
                 const authError = result?.error;
                 if (authError) throw authError;
-                await syncCloudProfileMetaForCurrentProfile({ explicitLink: true });
-                const boot = await runCloudBootstrapForCurrentProfile();
-                if (boot?.mode === 'local-preferred') {
-                    await queueCloudSyncForCurrentProfile('progress', buildCloudProgressSnapshotForSync());
-                }
-                setProfileCloudUiMessage('Conta online criada. Perfil pronto para continuar deste dispositivo e sincronizar entre aparelhos.', 'success');
+                await syncCloudProfileMetaForCurrentProfile();
+                setProfileCloudUiMessage('Conta online criada. Verifique seu e-mail se o projeto exigir confirmação.', 'success');
                 await refreshProfileCloudUi();
             } catch (err) {
-                setProfileCloudUiMessage(mapCloudAuthErrorToMessage(err, 'signup'), 'error');
+                setProfileCloudUiMessage(`Falha ao criar conta: ${String(err?.message || err)}`, 'error');
             } finally {
                 setProfileCloudUiBusy(false);
             }
@@ -4167,34 +4100,16 @@ function ensureProfileUI() {
                 const result = await window.PETAuth.signInWithEmail(email, password);
                 const authError = result?.error;
                 if (authError) throw authError;
-                const ctx = (window.PETBridge && window.PETBridge.getActiveProfileContext) ? window.PETBridge.getActiveProfileContext() : { deviceProfileId: null, isGuest: true };
-                let access = null;
-                try {
-                    access = ctx?.deviceProfileId && !ctx?.isGuest && window.PETRepositories?.profiles?.resolveCloudAccess
-                        ? await window.PETRepositories.profiles.resolveCloudAccess(ctx.deviceProfileId)
-                        : null;
-                } catch (resolveErr) {
-                    access = { ok: false, reason: 'mismatch', error: resolveErr };
-                }
-                if (access && access.reason === 'mismatch') {
-                    await window.PETAuth.signOut();
-                    throw new Error('Esta conta online pertence a outro perfil já vinculado neste dispositivo. Entre com a conta correta do estudante para continuar.');
-                }
-                if (access && access.ok) {
-                    await syncCloudProfileMetaForCurrentProfile({ explicitLink: false });
-                    const boot = await runCloudBootstrapForCurrentProfile();
-                    if (boot?.mode === 'remote-preferred') {
-                        setProfileCloudUiMessage('Conta conectada e andamento mais recente carregado da nuvem.', 'success');
-                    } else {
-                        await queueCloudSyncForCurrentProfile('progress', buildCloudProgressSnapshotForSync());
-                        setProfileCloudUiMessage('Conta conectada. Este progresso local foi enviado para a nuvem para continuar em qualquer dispositivo.', 'success');
-                    }
+                await syncCloudProfileMetaForCurrentProfile();
+                const boot = await runCloudBootstrapForCurrentProfile();
+                if (boot?.mode === 'remote-preferred') {
+                    setProfileCloudUiMessage('Conta conectada e progresso mais recente carregado da nuvem.', 'success');
                 } else {
-                    setProfileCloudUiMessage('Conta conectada. Para evitar misturar alunos neste dispositivo, vincule o perfil atual somente se este e-mail for do estudante correto.', 'info');
+                    setProfileCloudUiMessage('Conta conectada. Perfil local pronto para sincronizar.', 'success');
                 }
                 await refreshProfileCloudUi();
             } catch (err) {
-                setProfileCloudUiMessage(mapCloudAuthErrorToMessage(err, 'signin'), 'error');
+                setProfileCloudUiMessage(`Falha ao entrar: ${String(err?.message || err)}`, 'error');
             } finally {
                 setProfileCloudUiBusy(false);
             }
@@ -4202,7 +4117,7 @@ function ensureProfileUI() {
         overlay.querySelector('#profile-cloud-link').addEventListener('click', async () => {
             try {
                 setProfileCloudUiBusy(true);
-                const linked = await syncCloudProfileMetaForCurrentProfile({ explicitLink: true });
+                const linked = await syncCloudProfileMetaForCurrentProfile();
                 if (!linked) throw new Error('Selecione um perfil local ativo e entre na conta online antes de vincular.');
                 setProfileCloudUiMessage('Perfil local vinculado à conta online.', 'success');
                 await refreshProfileCloudUi();
@@ -4226,28 +4141,6 @@ function ensureProfileUI() {
                 setProfileCloudUiBusy(false);
             }
         });
-        overlay.querySelector('#profile-cloud-recover').addEventListener('click', async () => {
-            const email = String(overlay.querySelector('#profile-cloud-email')?.value || '').trim();
-            if (!isCloudFeatureConfigured()) {
-                setProfileCloudUiMessage('Preencha supabaseUrl e supabaseAnonKey em js/pet-config.js primeiro.', 'error');
-                return;
-            }
-            if (!email) {
-                setProfileCloudUiMessage('Informe o e-mail cadastrado para enviar a recuperação de senha.', 'error');
-                return;
-            }
-            try {
-                setProfileCloudUiBusy(true);
-                const result = await window.PETAuth.requestPasswordReset(email);
-                const authError = result?.error;
-                if (authError) throw authError;
-                setProfileCloudUiMessage('Recuperação de senha enviada para o e-mail cadastrado. Abra o e-mail e siga o link para definir uma nova senha.', 'success');
-            } catch (err) {
-                setProfileCloudUiMessage(`Falha ao enviar recuperação de senha: ${String(err?.message || err)}`, 'error');
-            } finally {
-                setProfileCloudUiBusy(false);
-            }
-        });
         overlay.querySelector('#profile-cloud-signout').addEventListener('click', async () => {
             try {
                 setProfileCloudUiBusy(true);
@@ -4262,173 +4155,13 @@ function ensureProfileUI() {
         });
         try {
             if (window.PETAuth && window.PETAuth.onAuthStateChange) {
-                window.PETAuth.onAuthStateChange(async (_session, event) => {
-                    try { if (event === 'PASSWORD_RECOVERY') await maybeOpenCloudRecoveryModal(true); } catch (_) {}
+                window.PETAuth.onAuthStateChange(async () => {
                     try { await refreshProfileCloudUi(); } catch (_) {}
                 });
             }
         } catch (_) {}
     }
     syncProfileButtonLabel();
-}
-
-function getDeviceProfileCloudLinkInfo(deviceProfileId = null) {
-    try {
-        const targetId = String(deviceProfileId || gameState.activeProfileId || '').trim();
-        if (!targetId || !window.PETLocalDriver || !window.PETLocalDriver.getCloudLinkInfo) return null;
-        return window.PETLocalDriver.getCloudLinkInfo(targetId);
-    } catch (_) {
-        return null;
-    }
-}
-function mapCloudAuthErrorToMessage(err, action = 'signin') {
-    const raw = String(err?.message || err || '').trim();
-    const normalized = raw.toLowerCase();
-    if (action === 'signin' && (normalized.includes('invalid login credentials') || normalized.includes('invalid credentials'))) {
-        return 'A senha está incorreta. Tente novamente. Se esqueceu a senha, use “Recuperar senha” para receber o link no e-mail cadastrado.';
-    }
-    if (normalized.includes('email not confirmed')) {
-        return 'O e-mail da conta online ainda não foi confirmado. Abra o e-mail cadastrado e confirme o acesso antes de entrar.';
-    }
-    if (normalized.includes('already registered') || normalized.includes('user already registered')) {
-        return 'Este e-mail já está cadastrado. Entre na nuvem ou use “Recuperar senha”.';
-    }
-    if (action === 'signup' && normalized.includes('password')) {
-        return 'Não foi possível criar a conta online com essa senha. Use pelo menos 8 caracteres.';
-    }
-    if (raw) return action === 'signin' ? `Falha ao entrar: ${raw}` : `Falha na conta online: ${raw}`;
-    return action === 'signin'
-        ? 'Falha ao entrar na conta online. Tente novamente ou use “Recuperar senha”.'
-        : 'Falha na conta online. Tente novamente.';
-}
-async function enforceCloudIsolationForProfile(deviceProfileId = null, options = {}) {
-    try {
-        if (!window.PETAuth || !window.PETAuth.isConfigured || !window.PETAuth.isConfigured()) return { mode: 'disabled' };
-        if (isCloudRecoveryModeFromUrl()) return { mode: 'recovery-bypass' };
-        const session = await window.PETAuth.getSession();
-        if (!session || !session.user) return { mode: 'no-session' };
-        const targetId = String(deviceProfileId || gameState.activeProfileId || '').trim();
-        if (!targetId || targetId === PROFILE_GUEST_ID) {
-            await window.PETAuth.signOut();
-            return { mode: 'signed-out-guest' };
-        }
-        const linkInfo = getDeviceProfileCloudLinkInfo(targetId);
-        const currentUserId = String(session.user.id || '').trim();
-        if (!linkInfo || !linkInfo.studentProfileId) {
-            await window.PETAuth.signOut();
-            return { mode: 'signed-out-unlinked' };
-        }
-        if (linkInfo.authUserId && linkInfo.authUserId !== currentUserId) {
-            await window.PETAuth.signOut();
-            return { mode: 'signed-out-mismatch' };
-        }
-        return { mode: 'kept', linkInfo };
-    } catch (err) {
-        if (!options || !options.silent) {
-            try { console.warn('Falha ao isolar sessão cloud do perfil ativo:', err); } catch (_) {}
-        }
-        return { mode: 'error', error: err };
-    }
-}
-function isCloudRecoveryModeFromUrl() {
-    try {
-        const href = String(window.location.href || '').toLowerCase();
-        const hash = String(window.location.hash || '').toLowerCase();
-        return href.includes('type=recovery') || hash.includes('type=recovery');
-    } catch (_) {
-        return false;
-    }
-}
-function clearCloudRecoveryUrlState() {
-    try {
-        const url = new URL(window.location.href);
-        url.hash = '';
-        window.history.replaceState({}, document.title, url.toString());
-    } catch (_) {}
-}
-function ensureCloudRecoveryModal() {
-    let modal = document.querySelector('#pet-cloud-recovery-modal');
-    if (modal) return modal;
-    modal = document.createElement('div');
-    modal.id = 'pet-cloud-recovery-modal';
-    modal.className = 'teacher-overlay';
-    modal.style.display = 'none';
-    modal.innerHTML = `
-      <div class="teacher-panel" style="max-width: 520px; width: min(92vw, 520px);">
-        <div class="teacher-panel-header">
-          <div>
-            <h3>Definir nova senha</h3>
-          </div>
-          <button id="pet-cloud-recovery-close" class="teacher-close" type="button" aria-label="Fechar">✕</button>
-        </div>
-        <p class="teacher-help">Digite a nova senha da conta online do estudante. Isso vale para qualquer dispositivo que usar esse e-mail.</p>
-        <div id="pet-cloud-recovery-status" class="profile-inline-note" data-level="info">Use pelo menos 8 caracteres.</div>
-        <label class="tp-label">Nova senha</label>
-        <input id="pet-cloud-recovery-password" class="tp-input" type="password" maxlength="80" placeholder="Mínimo recomendado: 8 caracteres">
-        <label class="tp-label">Confirmar nova senha</label>
-        <input id="pet-cloud-recovery-password-confirm" class="tp-input" type="password" maxlength="80" placeholder="Repita a nova senha">
-        <div class="teacher-row" style="margin-top: 12px; gap: 8px; flex-wrap: wrap;">
-          <button id="pet-cloud-recovery-save" class="btn-action" type="button">Salvar nova senha</button>
-          <button id="pet-cloud-recovery-cancel" class="btn-action btn-secondary" type="button">Cancelar</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(modal);
-    const setStatus = (message, level = 'info') => {
-        const box = modal.querySelector('#pet-cloud-recovery-status');
-        if (box) {
-            box.textContent = String(message || '');
-            box.setAttribute('data-level', String(level || 'info'));
-        }
-    };
-    const close = () => {
-        modal.style.display = 'none';
-    };
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) close();
-    });
-    modal.querySelector('#pet-cloud-recovery-close').addEventListener('click', close);
-    modal.querySelector('#pet-cloud-recovery-cancel').addEventListener('click', close);
-    modal.querySelector('#pet-cloud-recovery-save').addEventListener('click', async () => {
-        const pass1 = String(modal.querySelector('#pet-cloud-recovery-password')?.value || '');
-        const pass2 = String(modal.querySelector('#pet-cloud-recovery-password-confirm')?.value || '');
-        if (!pass1 || pass1.length < 8) {
-            setStatus('Use pelo menos 8 caracteres na nova senha.', 'error');
-            return;
-        }
-        if (pass1 !== pass2) {
-            setStatus('A confirmação da nova senha não confere.', 'error');
-            return;
-        }
-        try {
-            const btn = modal.querySelector('#pet-cloud-recovery-save');
-            if (btn) btn.disabled = true;
-            const result = await window.PETAuth.updatePassword(pass1);
-            if (result?.error) throw result.error;
-            setStatus('Nova senha salva com sucesso. Agora você já pode entrar com ela em qualquer dispositivo.', 'success');
-            clearCloudRecoveryUrlState();
-            setTimeout(close, 900);
-        } catch (err) {
-            setStatus(`Falha ao salvar a nova senha: ${String(err?.message || err)}`, 'error');
-        } finally {
-            const btn = modal.querySelector('#pet-cloud-recovery-save');
-            if (btn) btn.disabled = false;
-        }
-    });
-    return modal;
-}
-async function maybeOpenCloudRecoveryModal(force = false) {
-    try {
-        if (!force && !isCloudRecoveryModeFromUrl()) return false;
-        const modal = ensureCloudRecoveryModal();
-        modal.style.display = 'flex';
-        setTimeout(() => {
-            try { modal.querySelector('#pet-cloud-recovery-password')?.focus(); } catch (_) {}
-        }, 30);
-        return true;
-    } catch (_) {
-        return false;
-    }
 }
 
 function isCloudFeatureConfigured() {
@@ -4462,7 +4195,7 @@ function setProfileCloudUiMessage(message, level = 'info') {
 function setProfileCloudUiBusy(flag) {
     const state = getProfileCloudUiState();
     state.busy = !!flag;
-    ['#profile-cloud-signin', '#profile-cloud-signup', '#profile-cloud-recover', '#profile-cloud-signout', '#profile-cloud-sync', '#profile-cloud-link'].forEach((sel) => {
+    ['#profile-cloud-signin', '#profile-cloud-signup', '#profile-cloud-signout', '#profile-cloud-sync', '#profile-cloud-link'].forEach((sel) => {
         const el = document.querySelector(sel);
         if (el) el.disabled = !!flag;
     });
@@ -4475,7 +4208,6 @@ async function refreshProfileCloudUi() {
     const signOutBtn = __profileOverlay.querySelector('#profile-cloud-signout');
     const signInBtn = __profileOverlay.querySelector('#profile-cloud-signin');
     const signUpBtn = __profileOverlay.querySelector('#profile-cloud-signup');
-    const recoverBtn = __profileOverlay.querySelector('#profile-cloud-recover');
     const syncBtn = __profileOverlay.querySelector('#profile-cloud-sync');
     const linkBtn = __profileOverlay.querySelector('#profile-cloud-link');
     const activeCtx = (window.PETBridge && window.PETBridge.getActiveProfileContext) ? window.PETBridge.getActiveProfileContext() : { deviceProfileId: null, isGuest: true };
@@ -4483,42 +4215,29 @@ async function refreshProfileCloudUi() {
     const configured = isCloudFeatureConfigured();
     const session = await getCloudSessionSafe();
     const email = session?.user?.email || '';
-    const linkInfo = hasLocalProfile ? getDeviceProfileCloudLinkInfo(activeCtx.deviceProfileId) : null;
-    const access = configured && session && hasLocalProfile && window.PETRepositories?.profiles?.resolveCloudAccess
-        ? await window.PETRepositories.profiles.resolveCloudAccess(activeCtx.deviceProfileId)
-        : null;
-    const linked = !!(linkInfo && linkInfo.studentProfileId);
+    const linkMap = (window.PETLocalDriver && window.PETLocalDriver.getCloudLinkMap) ? window.PETLocalDriver.getCloudLinkMap() : {};
+    const linked = !!(activeCtx?.deviceProfileId && linkMap[activeCtx.deviceProfileId]);
     if (statusBadge) {
         if (!configured) statusBadge.textContent = 'Supabase não configurado';
         else if (!session) statusBadge.textContent = 'Conta online desconectada';
         else if (!hasLocalProfile) statusBadge.textContent = 'Visitante não sincroniza';
-        else if (access && access.reason === 'mismatch') statusBadge.textContent = 'Conta online errada para este perfil';
-        else statusBadge.textContent = linked ? 'Perfil vinculado à nuvem' : 'Perfil ainda não vinculado';
+        else statusBadge.textContent = linked ? 'Perfil vinculado à nuvem' : 'Conta conectada, perfil local não vinculado';
     }
     if (signOutBtn) signOutBtn.style.display = session ? 'inline-flex' : 'none';
     if (signInBtn) signInBtn.style.display = session ? 'none' : 'inline-flex';
     if (signUpBtn) signUpBtn.style.display = session ? 'none' : 'inline-flex';
-    if (recoverBtn) recoverBtn.style.display = session ? 'none' : 'inline-flex';
     if (syncBtn) syncBtn.style.display = session ? 'inline-flex' : 'none';
     if (linkBtn) linkBtn.style.display = session ? 'inline-flex' : 'none';
-    if (syncBtn) syncBtn.disabled = !session || !hasLocalProfile || !linked || !!(access && !access.ok);
-    if (linkBtn) linkBtn.disabled = !session || !hasLocalProfile || !!(access && access.reason === 'mismatch');
+    if (syncBtn) syncBtn.disabled = !session || !hasLocalProfile;
+    if (linkBtn) linkBtn.disabled = !session || !hasLocalProfile;
     if (emailEl) emailEl.disabled = !!session;
     if (pwdEl) pwdEl.disabled = !!session;
     const state = getProfileCloudUiState();
-    let defaultMessage = 'Conta online opcional para backup e sincronização.';
-    if (!configured) {
-        defaultMessage = 'Preencha supabaseUrl e supabaseAnonKey em js/pet-config.js para ativar a nuvem.';
-    } else if (session && !hasLocalProfile) {
-        defaultMessage = 'Visitante não sincroniza. Entre em um perfil com PIN para usar a nuvem.';
-    } else if (session && access && access.reason === 'mismatch') {
-        defaultMessage = `Conta conectada (${email || 'sem e-mail'}), mas este perfil local pertence a outro estudante neste dispositivo. Saia da conta online e entre com a conta correta.`;
-    } else if (session && hasLocalProfile && !linked) {
-        defaultMessage = `Conta conectada: ${email || 'sem e-mail'}. Este perfil local ainda não está vinculado. Para evitar misturar alunos, vincule apenas se esse e-mail for do estudante correto.`;
-    } else if (session) {
-        defaultMessage = email ? `Conta conectada: ${email}` : 'Conta online conectada.';
-    }
-    setProfileCloudUiMessage(state.message || defaultMessage, state.level || 'info');
+    setProfileCloudUiMessage(state.message || (configured
+        ? (session
+            ? (email ? `Conta conectada: ${email}` : 'Conta online conectada.')
+            : 'Conta online opcional para backup e sincronização.')
+        : 'Preencha supabaseUrl e supabaseAnonKey em js/pet-config.js para ativar a nuvem.'), state.level || 'info');
 }
 async function runCloudBootstrapForCurrentProfile() {
     try {
@@ -4541,144 +4260,32 @@ async function queueCloudSyncForCurrentProfile(kind = 'progress', payload = null
         if (!window.PETBridge || !window.PETSync || !window.PETRepositories) return { mode: 'unavailable' };
         const ctx = window.PETBridge.getActiveProfileContext();
         if (!ctx || !ctx.deviceProfileId || ctx.isGuest) return { mode: 'guest-or-missing' };
+        if (!(await getCloudSessionSafe())) return { mode: 'local-only-no-session' };
+        const profile = window.PETRepositories.profiles.readLocal(ctx.deviceProfileId, false);
+        await window.PETRepositories.profiles.ensureCloudLinked(ctx.deviceProfileId, profile);
         if (kind === 'session' && payload) {
             await window.PETRepositories.sessions.queueSync(ctx.deviceProfileId, payload);
-        } else if (kind === 'attempt' && payload && window.PETRepositories.attempts && window.PETRepositories.attempts.queueSync) {
-            await window.PETRepositories.attempts.queueSync(ctx.deviceProfileId, payload);
         } else {
-            const snap = payload && typeof payload === 'object'
-                ? payload
-                : buildCloudProgressSnapshotForSync(ctx.deviceProfileId);
+            const snap = window.PETRepositories.progress.readLocalSnapshot(ctx.deviceProfileId, false);
             await window.PETRepositories.progress.queueSync(ctx.deviceProfileId, snap);
         }
-        if (!(await getCloudSessionSafe())) return { mode: 'queued-local-no-session' };
-        const profile = window.PETRepositories.profiles.readLocal(ctx.deviceProfileId, false);
-        await window.PETRepositories.profiles.ensureCloudLinked(ctx.deviceProfileId, profile, { explicitLink: false });
         return await window.PETSync.syncNow();
     } catch (err) {
         console.warn('Falha ao sincronizar com a nuvem:', err);
         return { mode: 'error', error: err };
     }
 }
-async function syncCloudProfileMetaForCurrentProfile(options = {}) {
+async function syncCloudProfileMetaForCurrentProfile() {
     try {
         if (!window.PETBridge || !window.PETRepositories) return null;
         const ctx = window.PETBridge.getActiveProfileContext();
         if (!ctx || !ctx.deviceProfileId || ctx.isGuest) return null;
         if (!(await getCloudSessionSafe())) return null;
         const profile = window.PETRepositories.profiles.readLocal(ctx.deviceProfileId, false);
-        return await window.PETRepositories.profiles.ensureCloudLinked(ctx.deviceProfileId, profile, options || {});
+        return await window.PETRepositories.profiles.ensureCloudLinked(ctx.deviceProfileId, profile);
     } catch (err) {
         console.warn('Falha ao vincular perfil local à nuvem:', err);
-        throw err;
-    }
-}
-function getCloudAttemptStageLabel(question) {
-    return String(
-        question?.masteryStageLabel ||
-        question?.consolidationStageLabel ||
-        question?.sourceStageLabel ||
-        question?.stageLabel ||
-        gameState.operationTrail?.currentStageLabel ||
-        ''
-    ).trim();
-}
-function buildCloudAttemptSkillCode(question) {
-    const operation = String(question?.operacao || gameState.currentOperation || '').toLowerCase().trim() || 'questao';
-    const learningType = String(question?.learningType || inferStageLearningType(operation, getCloudAttemptStageLabel(question)) || '').toLowerCase().trim();
-    const stageLabel = normalizeSkillStageLabel(getCloudAttemptStageLabel(question)).toLowerCase();
-    const base = stageLabel || learningType || 'geral';
-    return `${operation}::${base.replace(/\s+/g, '_').replace(/[^a-z0-9_:-]/g, '')}`.slice(0, 180);
-}
-function buildInProgressCloudSessionPayload() {
-    const now = Date.now();
-    const hits = Math.max(0, Number(gameState.acertos || 0));
-    const misses = Math.max(0, Number(gameState.erros || 0));
-    const answered = Math.max(0, hits + misses);
-    const accuracy = answered > 0 ? Math.round(((hits / answered) * 100) * 10) / 10 : null;
-    return {
-        id: String(gameState.sessionKey || `sessao-${gameState.sessionStartedAt || now}`),
-        clientSessionId: String(gameState.sessionKey || `sessao-${gameState.sessionStartedAt || now}`),
-        sessionKey: String(gameState.sessionKey || `sessao-${gameState.sessionStartedAt || now}`),
-        operation: String(gameState.currentOperation || ''),
-        level: String(gameState.currentLevel || ''),
-        levelLabel: petLevelLabel(gameState.currentLevel || ''),
-        mode: gameState.isRapidMode ? 'rapid' : 'study',
-        stageNo: (gameState.operationTrail && gameState.operationTrail.masteryMode)
-            ? (Number(gameState.operationTrail.currentStageIndex || 0) + 1)
-            : null,
-        stageLabel: getCloudAttemptStageLabel(gameState.currentQuestion),
-        startedAt: Number(gameState.sessionStartedAt || now),
-        endedAt: now,
-        answered,
-        hits,
-        misses,
-        accuracy,
-        score: Math.round(Number(gameState.score || 0)),
-        xpEarned: Math.max(0, Number(gameState.xpGainedRound || 0)),
-        metadata: {
-            inProgress: true,
-            appVersion: String(document.body.getAttribute('data-version') || ''),
-            source: 'attempt-flow'
-        }
-    };
-}
-function buildCloudAttemptPayload(question, selectedAnswer, isCorrect, extra = {}) {
-    const q = question && typeof question === 'object' ? question : {};
-    const diagnosis = !isCorrect ? getDistractorDiagnosis(q, selectedAnswer) : null;
-    const now = Date.now();
-    const attemptNo = Math.max(1, Number(extra.attemptNo || (Number(gameState.attemptsThisQuestion || 0) + 1) || 1));
-    const questionSeq = Math.max(1, Number(extra.questionNumber || gameState.questionNumber || 1));
-    const responseStartedAt = Number(extra.responseStartedAt || gameState.questionAttemptStartedAt || gameState.questionStartedAt || now);
-    const responseMs = Math.max(0, Number(extra.responseMs || (now - responseStartedAt) || 0));
-    const options = Array.isArray(q.options) ? q.options.map((value) => String(value)) : [];
-    const clientSessionId = String(gameState.sessionKey || `sessao-${gameState.sessionStartedAt || now}`);
-    const clientAttemptId = `${clientSessionId}::q${questionSeq}::a${attemptNo}::${String(q.operacao || gameState.currentOperation || 'questao')}`;
-    return {
-        clientAttemptId,
-        clientSessionId,
-        sessionPayload: buildInProgressCloudSessionPayload(),
-        operation: String(q.operacao || gameState.currentOperation || ''),
-        skillCode: buildCloudAttemptSkillCode(q),
-        stageLabel: getCloudAttemptStageLabel(q),
-        questionText: String(q.question || '').trim(),
-        presentedOptions: options,
-        studentAnswer: (selectedAnswer == null ? '' : String(selectedAnswer)),
-        correct: !!isCorrect,
-        responseMs,
-        errorCode: String(diagnosis?.code || ''),
-        metadata: {
-            attemptNo,
-            questionSeq,
-            level: String(gameState.currentLevel || ''),
-            mode: gameState.isRapidMode ? 'rapid' : 'study',
-            source: gameState.isDiagnosticMode ? 'diagnostic' : (gameState.isTrainingErrors ? 'training' : 'game'),
-            supportMode: String(q.supportMode || gameState.operationTrail?.supportMode || 'normal'),
-            usedAlternativeResponse: !!q.usedAlternativeResponse,
-            isBridgeQuestion: !!q.isBridgeQuestion,
-            bridgeFamily: String(q.bridgeFamily || ''),
-            learningType: String(q.learningType || ''),
-            stageIndex: Number.isFinite(Number(q.stageIndex)) ? Number(q.stageIndex) : null,
-            answer: Number.isFinite(Number(q.answer)) ? Number(q.answer) : q.answer,
-            num1: Number.isFinite(Number(q.num1)) ? Number(q.num1) : null,
-            num2: Number.isFinite(Number(q.num2)) ? Number(q.num2) : null,
-            selectedDistractorCode: String(diagnosis?.code || ''),
-            selectedDistractorLabel: String(diagnosis?.label || ''),
-            selectedDistractorFeedback: String(diagnosis?.feedback || ''),
-            appVersion: String(document.body.getAttribute('data-version') || '')
-        }
-    };
-}
-async function queueCloudAttemptForCurrentProfile(question, selectedAnswer, isCorrect, extra = {}) {
-    try {
-        if (!window.PETBridge || !window.PETRepositories || !window.PETRepositories.attempts) return { mode: 'unavailable' };
-        const ctx = window.PETBridge.getActiveProfileContext();
-        if (!ctx || !ctx.deviceProfileId || ctx.isGuest) return { mode: 'guest-or-missing' };
-        const payload = buildCloudAttemptPayload(question, selectedAnswer, isCorrect, extra);
-        return await queueCloudSyncForCurrentProfile('attempt', payload);
-    } catch (err) {
-        console.warn('Falha ao registrar tentativa na nuvem:', err);
-        return { mode: 'error', error: err };
+        return null;
     }
 }
 
@@ -5877,493 +5484,6 @@ function describePedagogyLevelOverride(override) {
     if (mode === 'experimental') return 'liberação em observação';
     return 'sem override';
 }
-
-const TEACHER_PROVISIONAL_PASSWORD = 'bondadejfa';
-const TEACHER_ACCESS_HINT_KEY = 'matemagica_teacher_access_hint_v1';
-let __teacherAccessOverlay = null;
-let __teacherAccessResolver = null;
-let __teacherCurrentProfile = null;
-let __teacherAuthHooksBound = false;
-
-function getTeacherAccessHintSafe() {
-    try {
-        const raw = localStorage.getItem(TEACHER_ACCESS_HINT_KEY);
-        const obj = raw ? JSON.parse(raw) : {};
-        return (obj && typeof obj === 'object') ? obj : {};
-    } catch (_) {
-        return {};
-    }
-}
-function saveTeacherAccessHint(data) {
-    try {
-        const safe = data && typeof data === 'object' ? data : {};
-        localStorage.setItem(TEACHER_ACCESS_HINT_KEY, JSON.stringify({
-            email: String(safe.email || '').trim().slice(0, 180),
-            full_name: String(safe.full_name || '').trim().slice(0, 160),
-            school_name: String(safe.school_name || '').trim().slice(0, 180),
-            turma_label: String(safe.turma_label || '').trim().slice(0, 120)
-        }));
-    } catch (_) {}
-}
-function isTeacherRecoveryModeFromUrl() {
-    try {
-        const scope = String(window.PETAuth?.getRecoveryScopeFromUrl?.() || 'student').trim().toLowerCase();
-        return scope === 'teacher' && isCloudRecoveryModeFromUrl();
-    } catch (_) {
-        return false;
-    }
-}
-function clearTeacherRecoveryUrlState() {
-    try {
-        const url = new URL(window.location.href);
-        url.searchParams.delete('pet_recovery_scope');
-        url.hash = '';
-        window.history.replaceState({}, document.title, url.toString());
-    } catch (_) {}
-}
-function mapTeacherAuthErrorToMessage(err, action = 'signin') {
-    const raw = String(err?.message || err || '').trim();
-    const normalized = raw.toLowerCase();
-    if (action === 'signin' && (normalized.includes('invalid login credentials') || normalized.includes('invalid credentials'))) {
-        return 'Senha incorreta. Tente novamente ou use “Recuperar senha”.';
-    }
-    if (normalized.includes('email not confirmed')) {
-        return 'Confirme o e-mail do professor antes de entrar.';
-    }
-    if (normalized.includes('already registered') || normalized.includes('user already registered')) {
-        return 'Esse e-mail já está cadastrado. Entre ou use “Recuperar senha”.';
-    }
-    if (action === 'signup' && normalized.includes('password')) {
-        return 'A nova senha precisa ter pelo menos 8 caracteres.';
-    }
-    if (raw) return action === 'signin' ? `Falha no acesso: ${raw}` : `Falha no cadastro: ${raw}`;
-    return action === 'signin'
-        ? 'Não foi possível liberar o acesso. Tente novamente ou use “Recuperar senha”.'
-        : 'Não foi possível concluir o cadastro. Tente novamente.';
-}
-function ensureTeacherRecoveryModal() {
-    let modal = document.querySelector('#pet-teacher-recovery-modal');
-    if (modal) return modal;
-    modal = document.createElement('div');
-    modal.id = 'pet-teacher-recovery-modal';
-    modal.className = 'teacher-overlay';
-    modal.style.display = 'none';
-    modal.innerHTML = `
-      <div class="teacher-panel" style="max-width: 520px; width: min(92vw, 520px);">
-        <div class="teacher-panel-header">
-          <div><h3>Definir nova senha</h3></div>
-          <button id="pet-teacher-recovery-close" class="teacher-close" type="button" aria-label="Fechar">✕</button>
-        </div>
-        <p class="teacher-help">Digite a nova senha para voltar a acessar o painel.</p>
-        <div id="pet-teacher-recovery-status" class="profile-inline-note" data-level="info">Use pelo menos 8 caracteres.</div>
-        <label class="tp-label">Nova senha</label>
-        <input id="pet-teacher-recovery-password" class="tp-input" type="password" maxlength="80" placeholder="Mínimo recomendado: 8 caracteres">
-        <label class="tp-label">Confirmar nova senha</label>
-        <input id="pet-teacher-recovery-password-confirm" class="tp-input" type="password" maxlength="80" placeholder="Repita a nova senha">
-        <div class="teacher-row" style="margin-top: 12px; gap: 8px; flex-wrap: wrap;">
-          <button id="pet-teacher-recovery-save" class="btn-action" type="button">Salvar nova senha</button>
-          <button id="pet-teacher-recovery-cancel" class="btn-action btn-secondary" type="button">Cancelar</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(modal);
-    const setStatus = (message, level = 'info') => {
-        const box = modal.querySelector('#pet-teacher-recovery-status');
-        if (box) {
-            box.textContent = String(message || '');
-            box.setAttribute('data-level', String(level || 'info'));
-        }
-    };
-    const close = async () => {
-        modal.style.display = 'none';
-        try { await window.PETAuth?.signOutTeacher?.(); } catch (_) {}
-    };
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) close();
-    });
-    modal.querySelector('#pet-teacher-recovery-close').addEventListener('click', () => { close(); });
-    modal.querySelector('#pet-teacher-recovery-cancel').addEventListener('click', () => { close(); });
-    modal.querySelector('#pet-teacher-recovery-save').addEventListener('click', async () => {
-        const pass1 = String(modal.querySelector('#pet-teacher-recovery-password')?.value || '');
-        const pass2 = String(modal.querySelector('#pet-teacher-recovery-password-confirm')?.value || '');
-        if (!pass1 || pass1.length < 8) {
-            setStatus('Use pelo menos 8 caracteres na nova senha.', 'error');
-            return;
-        }
-        if (pass1 !== pass2) {
-            setStatus('A confirmação da nova senha não confere.', 'error');
-            return;
-        }
-        try {
-            const btn = modal.querySelector('#pet-teacher-recovery-save');
-            if (btn) btn.disabled = true;
-            const result = await window.PETAuth.updateTeacherPassword(pass1);
-            if (result?.error) throw result.error;
-            setStatus('Nova senha salva com sucesso.', 'success');
-            clearTeacherRecoveryUrlState();
-            setTimeout(() => { try { close(); } catch (_) {} }, 900);
-        } catch (err) {
-            setStatus(`Falha ao salvar a nova senha: ${String(err?.message || err)}`, 'error');
-        } finally {
-            const btn = modal.querySelector('#pet-teacher-recovery-save');
-            if (btn) btn.disabled = false;
-        }
-    });
-    return modal;
-}
-async function maybeOpenTeacherRecoveryModal(force = false) {
-    try {
-        if (!force && !isTeacherRecoveryModeFromUrl()) return false;
-        const modal = ensureTeacherRecoveryModal();
-        modal.style.display = 'flex';
-        setTimeout(() => {
-            try { modal.querySelector('#pet-teacher-recovery-password')?.focus(); } catch (_) {}
-        }, 30);
-        return true;
-    } catch (_) {
-        return false;
-    }
-}
-function ensureTeacherAccessOverlay() {
-    let overlay = document.querySelector('#pet-teacher-access-overlay');
-    if (overlay) return overlay;
-    overlay = document.createElement('div');
-    overlay.id = 'pet-teacher-access-overlay';
-    overlay.className = 'teacher-overlay hidden';
-    overlay.innerHTML = `
-      <div class="teacher-panel" role="dialog" aria-modal="true" aria-label="Acesso do professor" style="max-width: 620px; width: min(94vw, 620px);">
-        <div class="teacher-panel-header">
-          <div>
-            <h2>🔒 Acesso do Professor</h2>
-            <div class="teacher-help">Acesso exclusivo do professor.</div>
-          </div>
-          <button id="teacher-access-close" class="teacher-close" type="button" aria-label="Fechar">✕</button>
-        </div>
-        <div id="teacher-access-status" class="profile-inline-note" data-level="info">Digite somente a senha provisória do professor para continuar.</div>
-        <div id="teacher-first-access-box" class="teacher-panel-section">
-          <h3>Primeiro acesso</h3>
-          <p class="teacher-help">Valide a senha provisória. Depois, cadastre o professor.</p>
-          <div id="teacher-first-step-provisional">
-            <label class="tp-label">Senha provisória</label>
-            <input id="teacher-access-provisional" class="tp-input" type="password" maxlength="80" placeholder="Senha provisória do professor">
-            <div class="teacher-row" style="margin-top: 12px; gap: 8px; flex-wrap: wrap;">
-              <button id="teacher-access-validate-provisional" class="btn-action" type="button">Continuar</button>
-            </div>
-          </div>
-          <div id="teacher-first-step-form" class="hidden">
-            <div class="profile-inline-note" data-level="success" style="margin-bottom: 12px;">Senha validada. Preencha os dados do professor.</div>
-            <label class="tp-label">Nome completo</label>
-            <input id="teacher-access-fullname" class="tp-input" type="text" maxlength="160" placeholder="Nome completo">
-            <label class="tp-label">Escola</label>
-            <input id="teacher-access-school" class="tp-input" type="text" maxlength="180" placeholder="Nome da escola">
-            <label class="tp-label">Turma</label>
-            <input id="teacher-access-class" class="tp-input" type="text" maxlength="120" placeholder="Ex.: 7ºA, 801, 8º ano B">
-            <label class="tp-label">E-mail</label>
-            <input id="teacher-access-reg-email" class="tp-input" type="email" maxlength="180" placeholder="professor@exemplo.com">
-            <label class="tp-label">Nova senha</label>
-            <input id="teacher-access-reg-password" class="tp-input" type="password" maxlength="80" placeholder="Mínimo recomendado: 8 caracteres">
-            <label class="tp-label">Confirmar nova senha</label>
-            <input id="teacher-access-reg-password-confirm" class="tp-input" type="password" maxlength="80" placeholder="Repita a nova senha">
-            <div class="teacher-row" style="margin-top: 12px; gap: 8px; flex-wrap: wrap;">
-              <button id="teacher-access-register" class="btn-action" type="button">Cadastrar professor</button>
-              <button id="teacher-access-open-login" class="btn-action btn-secondary" type="button">Entrar</button>
-              <button id="teacher-access-reset-provisional" class="btn-action btn-secondary" type="button">Voltar</button>
-            </div>
-          </div>
-        </div>
-        <div id="teacher-signin-box" class="teacher-panel-section hidden">
-          <h3>Acesso do professor</h3>
-          <p class="teacher-help">Use esta opção se o professor já estiver cadastrado.</p>
-          <label class="tp-label">E-mail</label>
-          <input id="teacher-access-email" class="tp-input" type="email" maxlength="180" placeholder="professor@exemplo.com">
-          <label class="tp-label">Senha</label>
-          <input id="teacher-access-password" class="tp-input" type="password" maxlength="80" placeholder="Digite a senha cadastrada">
-          <div class="teacher-row" style="margin-top: 12px; gap: 8px; flex-wrap: wrap;">
-            <button id="teacher-access-signin" class="btn-action" type="button">Entrar</button>
-            <button id="teacher-access-recover" class="btn-action btn-secondary" type="button">Recuperar senha</button>
-            <button id="teacher-access-back-provisional" class="btn-action btn-secondary" type="button">Voltar</button>
-          </div>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(overlay);
-    const statusEl = overlay.querySelector('#teacher-access-status');
-    const setStatus = (message, level = 'info') => {
-        if (!statusEl) return;
-        statusEl.textContent = String(message || '');
-        statusEl.setAttribute('data-level', String(level || 'info'));
-    };
-    const setBusy = (busy) => {
-        overlay.querySelectorAll('button').forEach((btn) => { btn.disabled = !!busy; });
-    };
-    const close = (result = false) => {
-        overlay.classList.add('hidden');
-        overlay.setAttribute('aria-hidden', 'true');
-        if (__teacherAccessResolver) {
-            const resolver = __teacherAccessResolver;
-            __teacherAccessResolver = null;
-            resolver(!!result);
-        }
-    };
-    let teacherProvisionalValidated = false;
-    let teacherViewMode = 'provisional';
-    const syncFirstAccessSteps = () => {
-        const provisionalStep = overlay.querySelector('#teacher-first-step-provisional');
-        const formStep = overlay.querySelector('#teacher-first-step-form');
-        const firstBox = overlay.querySelector('#teacher-first-access-box');
-        const signinBox = overlay.querySelector('#teacher-signin-box');
-        const setHidden = (el, shouldHide) => {
-            if (!el) return;
-            el.hidden = !!shouldHide;
-            el.classList.toggle('hidden', !!shouldHide);
-            el.setAttribute('aria-hidden', shouldHide ? 'true' : 'false');
-            el.style.display = shouldHide ? 'none' : '';
-        };
-        setHidden(firstBox, teacherViewMode === 'signin');
-        setHidden(signinBox, teacherViewMode !== 'signin');
-        setHidden(provisionalStep, teacherProvisionalValidated || teacherViewMode === 'signin');
-        setHidden(formStep, !teacherProvisionalValidated || teacherViewMode === 'signin');
-    };
-    const resetFirstAccessFlow = () => {
-        teacherProvisionalValidated = false;
-        teacherViewMode = 'provisional';
-        const provisionalEl = overlay.querySelector('#teacher-access-provisional');
-        const fullNameEl = overlay.querySelector('#teacher-access-fullname');
-        const schoolEl = overlay.querySelector('#teacher-access-school');
-        const turmaEl = overlay.querySelector('#teacher-access-class');
-        const regEmailEl = overlay.querySelector('#teacher-access-reg-email');
-        const regPassEl = overlay.querySelector('#teacher-access-reg-password');
-        const regPassConfirmEl = overlay.querySelector('#teacher-access-reg-password-confirm');
-        const signinEmailEl = overlay.querySelector('#teacher-access-email');
-        const signinPassEl = overlay.querySelector('#teacher-access-password');
-        if (provisionalEl) provisionalEl.value = '';
-        if (fullNameEl) fullNameEl.value = '';
-        if (schoolEl) schoolEl.value = '';
-        if (turmaEl) turmaEl.value = '';
-        if (regEmailEl) regEmailEl.value = '';
-        if (regPassEl) regPassEl.value = '';
-        if (regPassConfirmEl) regPassConfirmEl.value = '';
-        if (signinEmailEl) signinEmailEl.value = '';
-        if (signinPassEl) signinPassEl.value = '';
-        syncFirstAccessSteps();
-    };
-    const showTeacherLogin = () => {
-        teacherViewMode = 'signin';
-        syncFirstAccessSteps();
-    };
-    const showTeacherProvisional = () => {
-        teacherViewMode = 'provisional';
-        syncFirstAccessSteps();
-    };
-    const applyHint = () => {
-        const hint = getTeacherAccessHintSafe();
-        const emailEl = overlay.querySelector('#teacher-access-email');
-        const regEmailEl = overlay.querySelector('#teacher-access-reg-email');
-        const nameEl = overlay.querySelector('#teacher-access-fullname');
-        const schoolEl = overlay.querySelector('#teacher-access-school');
-        const turmaEl = overlay.querySelector('#teacher-access-class');
-        if (emailEl && hint.email && !emailEl.value) emailEl.value = hint.email;
-        if (regEmailEl && hint.email && !regEmailEl.value) regEmailEl.value = hint.email;
-        if (nameEl && hint.full_name && !nameEl.value) nameEl.value = hint.full_name;
-        if (schoolEl && hint.school_name && !schoolEl.value) schoolEl.value = hint.school_name;
-        if (turmaEl && hint.turma_label && !turmaEl.value) turmaEl.value = hint.turma_label;
-    };
-    overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) close(false);
-    });
-    overlay.querySelector('#teacher-access-close').addEventListener('click', () => close(false));
-    overlay.querySelector('#teacher-access-open-login').addEventListener('click', () => {
-        showTeacherLogin();
-        applyHint();
-        setStatus('Informe e-mail e senha do professor. Se precisar, use “Recuperar senha”.', 'info');
-    });
-    overlay.querySelector('#teacher-access-back-provisional').addEventListener('click', () => {
-        showTeacherProvisional();
-        setStatus('Digite somente a senha provisória do professor para continuar.', 'info');
-        try { overlay.querySelector('#teacher-access-provisional')?.focus(); } catch (_) {}
-    });
-    overlay.querySelector('#teacher-access-validate-provisional').addEventListener('click', () => {
-        const provisional = String(overlay.querySelector('#teacher-access-provisional')?.value || '');
-        if (provisional !== TEACHER_PROVISIONAL_PASSWORD) {
-            teacherProvisionalValidated = false;
-            syncFirstAccessSteps();
-            setStatus('Senha provisória incorreta. Tente novamente.', 'error');
-            return;
-        }
-        teacherProvisionalValidated = true;
-        syncFirstAccessSteps();
-        applyHint();
-        setStatus('Senha validada. Preencha os dados do professor.', 'success');
-    });
-    overlay.querySelector('#teacher-access-reset-provisional').addEventListener('click', () => {
-        teacherProvisionalValidated = false;
-        showTeacherProvisional();
-        setStatus('Digite somente a senha provisória do professor para continuar.', 'info');
-        try { overlay.querySelector('#teacher-access-provisional')?.focus(); } catch (_) {}
-    });
-    overlay.querySelector('#teacher-access-recover').addEventListener('click', async () => {
-        const email = String(overlay.querySelector('#teacher-access-email')?.value || overlay.querySelector('#teacher-access-reg-email')?.value || '').trim();
-        if (!isCloudFeatureConfigured()) {
-            setStatus('Configure o Supabase em js/pet-config.js antes de usar a recuperação de senha.', 'error');
-            return;
-        }
-        if (!email) {
-            setStatus('Informe o e-mail do professor para enviar a recuperação de senha.', 'error');
-            return;
-        }
-        try {
-            setBusy(true);
-            const result = await window.PETAuth.requestTeacherPasswordReset(email);
-            if (result?.error) throw result.error;
-            setStatus('Recuperação enviada por e-mail. Abra o link recebido para definir uma nova senha.', 'success');
-        } catch (err) {
-            setStatus(`Falha ao enviar a recuperação: ${String(err?.message || err)}`, 'error');
-        } finally {
-            setBusy(false);
-        }
-    });
-    overlay.querySelector('#teacher-access-signin').addEventListener('click', async () => {
-        const email = String(overlay.querySelector('#teacher-access-email')?.value || '').trim();
-        const password = String(overlay.querySelector('#teacher-access-password')?.value || '');
-        if (!isCloudFeatureConfigured()) {
-            setStatus('Configure o Supabase em js/pet-config.js antes de entrar.', 'error');
-            return;
-        }
-        if (!email || !password) {
-            setStatus('Informe e-mail e senha para entrar.', 'error');
-            return;
-        }
-        try {
-            setBusy(true);
-            const result = await window.PETAuth.signInTeacherWithEmail(email, password);
-            if (result?.error) throw result.error;
-            const teacherProfile = await window.PETCloudDriver.fetchTeacherProfileForCurrentUser();
-            if (!teacherProfile) {
-                try { await window.PETAuth.signOutTeacher(); } catch (_) {}
-                throw new Error('Professor ainda não cadastrado. Use “Primeiro acesso” para concluir o cadastro.');
-            }
-            __teacherCurrentProfile = teacherProfile;
-            saveTeacherAccessHint(teacherProfile);
-            setStatus('Acesso liberado.', 'success');
-            close(true);
-        } catch (err) {
-            __teacherCurrentProfile = null;
-            setStatus(mapTeacherAuthErrorToMessage(err, 'signin'), 'error');
-        } finally {
-            setBusy(false);
-        }
-    });
-    overlay.__resetFirstAccessFlow = resetFirstAccessFlow;
-    overlay.__setStatus = setStatus;
-    overlay.__showTeacherLogin = showTeacherLogin;
-    overlay.__showTeacherProvisional = showTeacherProvisional;
-    resetFirstAccessFlow();
-    setStatus('Digite somente a senha provisória do professor para continuar.', 'info');
-    overlay.querySelector('#teacher-access-register').addEventListener('click', async () => {
-        const provisional = String(overlay.querySelector('#teacher-access-provisional')?.value || '');
-        const fullName = String(overlay.querySelector('#teacher-access-fullname')?.value || '').trim();
-        const schoolName = String(overlay.querySelector('#teacher-access-school')?.value || '').trim();
-        const turmaLabel = String(overlay.querySelector('#teacher-access-class')?.value || '').trim();
-        const email = String(overlay.querySelector('#teacher-access-reg-email')?.value || '').trim();
-        const pass1 = String(overlay.querySelector('#teacher-access-reg-password')?.value || '');
-        const pass2 = String(overlay.querySelector('#teacher-access-reg-password-confirm')?.value || '');
-        if (!isCloudFeatureConfigured()) {
-            setStatus('Configure o Supabase em js/pet-config.js antes de cadastrar o professor.', 'error');
-            return;
-        }
-        if (!teacherProvisionalValidated || provisional !== TEACHER_PROVISIONAL_PASSWORD) {
-            teacherProvisionalValidated = false;
-            syncFirstAccessSteps();
-            setStatus('Valide a senha provisória antes de cadastrar o professor.', 'error');
-            return;
-        }
-        if (!fullName || !schoolName || !turmaLabel || !email) {
-            setStatus('Preencha nome completo, escola, turma e e-mail.', 'error');
-            return;
-        }
-        if (!pass1 || pass1.length < 8) {
-            setStatus('A nova senha deve ter pelo menos 8 caracteres.', 'error');
-            return;
-        }
-        if (pass1 !== pass2) {
-            setStatus('A confirmação da nova senha não confere.', 'error');
-            return;
-        }
-        try {
-            setBusy(true);
-            const signUpResult = await window.PETAuth.signUpTeacherWithEmail(email, pass1);
-            if (signUpResult?.error) throw signUpResult.error;
-            let teacherSession = await window.PETAuth.getTeacherSession();
-            if (!teacherSession) {
-                const signInResult = await window.PETAuth.signInTeacherWithEmail(email, pass1);
-                if (signInResult?.error) throw signInResult.error;
-                teacherSession = await window.PETAuth.getTeacherSession();
-            }
-            if (!teacherSession) {
-                setStatus('Cadastro iniciado. Confirme o e-mail para concluir o acesso.', 'success');
-                return;
-            }
-            const teacherProfile = await window.PETCloudDriver.registerTeacherAccess({
-                full_name: fullName,
-                school_name: schoolName,
-                turma_label: turmaLabel,
-                email
-            });
-            __teacherCurrentProfile = teacherProfile;
-            saveTeacherAccessHint(teacherProfile || { full_name: fullName, school_name: schoolName, turma_label: turmaLabel, email });
-            setStatus('Professor cadastrado com sucesso. Acesso liberado.', 'success');
-            close(true);
-        } catch (err) {
-            __teacherCurrentProfile = null;
-            setStatus(mapTeacherAuthErrorToMessage(err, 'signup'), 'error');
-        } finally {
-            setBusy(false);
-        }
-    });
-    return overlay;
-}
-async function requestTeacherPanelAccess() {
-    try {
-        if (isTeacherRecoveryModeFromUrl()) {
-            await maybeOpenTeacherRecoveryModal(true);
-            return false;
-        }
-        const overlay = ensureTeacherAccessOverlay();
-        overlay.classList.remove('hidden');
-        overlay.setAttribute('aria-hidden', 'false');
-        try {
-            const hint = getTeacherAccessHintSafe();
-            const emailEl = overlay.querySelector('#teacher-access-email');
-            const regEmailEl = overlay.querySelector('#teacher-access-reg-email');
-            if (emailEl && hint.email && !emailEl.value) emailEl.value = hint.email;
-            if (regEmailEl && hint.email && !regEmailEl.value) regEmailEl.value = hint.email;
-            if (typeof overlay.__resetFirstAccessFlow === 'function') overlay.__resetFirstAccessFlow();
-            if (typeof overlay.__setStatus === 'function') overlay.__setStatus('Digite somente a senha provisória do professor para continuar.', 'info');
-            overlay.querySelector('#teacher-access-provisional')?.focus();
-        } catch (_) {}
-        return await new Promise((resolve) => {
-            __teacherAccessResolver = resolve;
-        });
-    } catch (_) {
-        return false;
-    }
-}
-async function releaseTeacherPanelAccess() {
-    __teacherCurrentProfile = null;
-    try { await window.PETAuth?.signOutTeacher?.(); } catch (_) {}
-}
-function initTeacherAuthHooks() {
-    if (__teacherAuthHooksBound) return;
-    __teacherAuthHooksBound = true;
-    try {
-        if (window.PETAuth && window.PETAuth.onTeacherAuthStateChange) {
-            window.PETAuth.onTeacherAuthStateChange(async (_session, event) => {
-                try { if (event === 'PASSWORD_RECOVERY') await maybeOpenTeacherRecoveryModal(true); } catch (_) {}
-            });
-        }
-    } catch (_) {}
-}
-
 function initTeacherPanel() {
     // Evita duplicar
     if (document.getElementById('teacher-fab')) return;
@@ -6381,7 +5501,7 @@ function initTeacherPanel() {
     overlay.innerHTML = `
       <div class="teacher-panel" role="dialog" aria-modal="true" aria-label="Painel do Professor">
         <div class="teacher-panel-header">
-          <div><h2>Painel do Professor</h2><div id="tp-auth-badge" class="profile-inline-note" data-level="info">Acesso protegido do professor</div></div>
+          <h2>Painel do Professor</h2>
           <button id="tp-close" class="btn-secondary" type="button">Fechar</button>
         </div>
         <div class="teacher-panel-section">
@@ -6621,13 +5741,12 @@ function initTeacherPanel() {
     document.body.appendChild(overlay);
     const prefs = getTeacherPrefsSafe();
     let teacherPanelOpen = false;
-    const close = async () => {
+    const close = () => {
         if (!teacherPanelOpen) return;
         if (!petGuardAction('teacher-panel-close', 180)) return;
         overlay.classList.add('hidden');
         overlay.setAttribute('aria-hidden', 'true');
         teacherPanelOpen = false;
-        try { await releaseTeacherPanelAccess(); } catch (_) {}
     };
     const open = () => {
         if (teacherPanelOpen) return;
@@ -6635,46 +5754,28 @@ function initTeacherPanel() {
         overlay.classList.remove('hidden');
         overlay.setAttribute('aria-hidden', 'false');
         teacherPanelOpen = true;
-        try {
-            const badge = overlay.querySelector('#tp-auth-badge');
-            if (badge) {
-                const teacherName = String(__teacherCurrentProfile?.full_name || __teacherCurrentProfile?.display_name || '').trim();
-                const teacherTurma = String(__teacherCurrentProfile?.turma_label || '').trim();
-                badge.textContent = teacherName ? `${teacherName}${teacherTurma ? ` • ${teacherTurma}` : ''}` : 'Acesso protegido do professor';
-                badge.setAttribute('data-level', teacherName ? 'success' : 'info');
-            }
-        } catch (_) {}
         // Atualiza filtros/resumo do relatório quando abrir
         try { initCsvFiltersOnce(); } catch (_) {}
         try { updateCsvSummary(); } catch (_) {}
         try { refreshTeacherPedagogyControls(); } catch (_) {}
     };
-    bindGuardedClick(fab, 'teacher-panel-fab-toggle', async () => {
-        if (teacherPanelOpen) {
-            await close();
-            return false;
-        }
-        const accessGranted = await requestTeacherPanelAccess();
-        if (!accessGranted) return false;
-        open();
+    bindGuardedClick(fab, 'teacher-panel-fab-toggle', () => {
+        if (teacherPanelOpen) close(); else open();
         return false;
     }, { minIntervalMs: 300, bindToken: 'teacher-panel-fab-toggle' });
     overlay.addEventListener('click', (e) => {
         if (e.target === overlay) close();
     });
-    bindGuardedClick(overlay.querySelector('#tp-close'), 'teacher-panel-close-btn', async () => {
-        await close();
+    bindGuardedClick(overlay.querySelector('#tp-close'), 'teacher-panel-close-btn', () => {
+        close();
         return false;
     }, { minIntervalMs: 220, bindToken: 'teacher-panel-close-btn' });
     // Botão na Home (se existir) abre o painel do professor
     try {
         const homeBtn = document.getElementById('btn-open-teacher-panel');
         if (homeBtn) {
-            bindGuardedClick(homeBtn, 'teacher-panel-home-open', async () => {
-                try {
-                    const accessGranted = await requestTeacherPanelAccess();
-                    if (accessGranted) open();
-                } catch (_) {}
+            bindGuardedClick(homeBtn, 'teacher-panel-home-open', () => {
+                try { open(); } catch (_) {}
                 return false;
             }, { minIntervalMs: 420, bindToken: 'teacher-panel-home-open' });
         }
@@ -8549,8 +7650,7 @@ function startErrorTraining() {
     nextTrainingQuestion();
 }
 function nextTrainingQuestion() {
-    const q = auditAndFixQuestionBeforeDisplay(gameState.trainingQueue[gameState.trainingIndex], { source: 'training' });
-    if (gameState.trainingQueue[gameState.trainingIndex]) gameState.trainingQueue[gameState.trainingIndex] = q;
+    const q = gameState.trainingQueue[gameState.trainingIndex];
     if (!q) {
         endTraining();
         return;
@@ -8558,8 +7658,6 @@ function nextTrainingQuestion() {
     gameState.questionNumber++;
     gameState.currentQuestion = q;
     gameState.attemptsThisQuestion = 0;
-    gameState.questionStartedAt = Date.now();
-    gameState.questionAttemptStartedAt = gameState.questionStartedAt;
     // UI
     questionCounter.textContent = `Treino: ${gameState.trainingIndex + 1}/${gameState.trainingQueue.length}`;
     questionText.textContent = q.question;
@@ -11391,9 +10489,6 @@ function handleDiagnosticAnswer(selectedAnswer, selectedButton) {
     if (gameState.answerLocked) return;
     const q = gameState.currentQuestion;
     if (!q) return;
-    const attemptNo = Math.max(1, Number(gameState.attemptsThisQuestion || 0) + 1);
-    const responseStartedAt = Number(gameState.questionAttemptStartedAt || gameState.questionStartedAt || Date.now());
-    const responseMs = Math.max(0, Date.now() - responseStartedAt);
     const isCorrect = selectedAnswer === q.answer;
     gameState.answerLocked = true;
     setTimeout(() => { gameState.answerLocked = false; }, 220);
@@ -11413,14 +10508,6 @@ function handleDiagnosticAnswer(selectedAnswer, selectedButton) {
         stageLabel: String(q.stageLabel || '').trim(),
         correct: !!isCorrect
     });
-    try {
-        queueCloudAttemptForCurrentProfile(q, selectedAnswer, isCorrect, {
-            attemptNo,
-            questionNumber: gameState.questionNumber,
-            responseStartedAt,
-            responseMs
-        });
-    } catch (_) {}
     setTimeout(() => {
         if (gameState.questionNumber >= gameState.totalQuestions) {
             endGame();
@@ -13852,7 +12939,6 @@ function startGame(operation, level, options = {}) {
     gameState.totalAnswerTimeMs = 0;
     gameState.questionsAnswered = 0;
     gameState.questionStartedAt = Date.now();
-    gameState.questionAttemptStartedAt = gameState.questionStartedAt;
     gameState.__summaryShown = false;
     gameState.__petProgressUpdate = null;
     gameState.__petStreakRewardApplied = false;
@@ -13992,35 +13078,17 @@ function escapeHtml(str) {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 }
-function parseRepeatedAdditionExpression(questionText) {
-    const raw = String(questionText || '').replace(/\s*=\s*\?\s*$/, '').trim();
-    if (!raw || !/\+/.test(raw) || /[x×÷\-]|\^|²|³|√|∛/.test(raw)) return null;
-    const focus = /\bent[aã]o\b/i.test(raw) ? raw.split(/\bent[aã]o\b/i).pop().trim() : raw;
-    const parts = focus.split('+').map((part) => Number(String(part).trim())).filter((n) => Number.isFinite(n));
-    if (parts.length < 2) return null;
-    const unique = Array.from(new Set(parts));
-    if (unique.length !== 1) return null;
-    return {
-        addend: unique[0],
-        times: parts.length,
-        parts
-    };
-}
 function inferSemanticOperationFromQuestionText(questionText, fallback = '') {
     const raw = String(questionText || '').replace(/\s*=\s*\?\s*$/, '').trim();
     if (!raw) return String(fallback || '');
-    const normalizedFallback = String(fallback || '').trim();
     const focus = /\bent[aã]o\b/i.test(raw) ? raw.split(/\bent[aã]o\b/i).pop().trim() : raw;
-    const repeatedAddition = parseRepeatedAdditionExpression(focus);
-    if (repeatedAddition && normalizedFallback === 'multiplication') return 'multiplication';
     if (/∛|√/.test(focus)) return 'radiciacao';
     if (/÷/.test(focus)) return 'division';
     if (/\d\s*-\s*\d|\)\s*-\s*\d/.test(focus)) return 'subtraction';
     if (/\d\s*[x×]\s*\d/i.test(focus)) return 'multiplication';
     if (/\^|²|³/.test(focus)) return 'potenciacao';
-    if (repeatedAddition && normalizedFallback === 'addition') return 'addition';
     if (/\+/.test(focus)) return 'addition';
-    return normalizedFallback;
+    return String(fallback || '');
 }
 function auditQuestionPedagogicalConsistency(q) {
     const questionText = String(q?.question || '').replace(/\s*=\s*\?\s*$/, '').trim();
@@ -14072,8 +13140,7 @@ function getQuestionPedagogicalContext(q) {
     const isDecomposition = stage.includes('decomposição') || stage.includes('dezenas e unidades');
     const isMental = stage.includes('estratégias mentais') || stage.includes('mental') || /dobro|triplo|compensa/i.test(text);
     const isRemainder = stage.includes('resto') || /\(resto\)|resto|sobram?/i.test(text);
-    const repeatedAdditionInfo = parseRepeatedAdditionExpression(text);
-    const isRepeatedAddition = !!repeatedAdditionInfo && op === 'multiplication';
+    const isRepeatedAddition = /\+/.test(text) && op === 'multiplication';
     const isEqualGroups = /grupos de/i.test(text) || stage.includes('grupos iguais');
     const isExpandedPower = stage.includes('escrita expandida') || /×/.test(text) || /\^|²|³/.test(text);
     const isInverse = bridge || strategy === 'inverse-relation' || strategy === 'inverse-power' || strategy === 'inverse-root' || stage.includes('relação') || stage.includes('inversa');
@@ -14081,13 +13148,11 @@ function getQuestionPedagogicalContext(q) {
         audit, op, text, lower, stage, stageRaw, strategy, bridge, n1, n2, ans,
         isMissingTerm, isMissingFactor, isMissingDividend, isMissingDivisor,
         isEstimation, isContext, isComparison, isDecomposition, isMental,
-        isRemainder, isRepeatedAddition, isEqualGroups, isExpandedPower, isInverse,
-        repeatedAdditionInfo
+        isRemainder, isRepeatedAddition, isEqualGroups, isExpandedPower, isInverse
     };
 }
 function buildFacilitatedQuestionText(q) {
     if (!q) return '';
-    if (q.auditSupportOverrides && q.auditSupportOverrides.reading) return String(q.auditSupportOverrides.reading);
     const ctx = getQuestionPedagogicalContext(q);
     const { op, text, stage, n1, n2, ans } = ctx;
     if (op === 'addition') {
@@ -14109,13 +13174,7 @@ function buildFacilitatedQuestionText(q) {
     if (op === 'multiplication') {
         if (ctx.isMissingFactor && Number.isFinite(n1) && Number.isFinite(n2) && Number.isFinite(ans)) return `O produto já está dado. Descubra qual fator falta para completar a multiplicação.`;
         if (ctx.isEqualGroups && Number.isFinite(n1) && Number.isFinite(n2)) return `Organize ${n1} grupos com ${n2} em cada grupo e descubra o total.`;
-        if (ctx.isRepeatedAddition) {
-            const addend = Number(ctx?.repeatedAdditionInfo?.addend);
-            const times = Number(ctx?.repeatedAdditionInfo?.times);
-            return Number.isFinite(addend) && Number.isFinite(times)
-                ? `O ${addend} aparece ${times} vezes. Descubra quantos grupos existem e quanto há em cada grupo para trocar a soma repetida por multiplicação.`
-                : `Troque a soma repetida por uma multiplicação: conte quantos grupos aparecem e quanto há em cada grupo.`;
-        }
+        if (ctx.isRepeatedAddition) return `Troque a soma repetida por uma multiplicação: conte quantos grupos aparecem e quanto há em cada grupo.`;
         if (ctx.isMental) return /triplo/i.test(text) ? `Triplo é a mesma quantidade 3 vezes. Encontre uma vez e repita o raciocínio.` : `Use dobro, metade ou decomposição para multiplicar sem depender só da tabuada decorada.`;
         if (ctx.isContext) return `Leia o contexto e identifique quantidade de grupos e quantidade em cada grupo.`;
         if (Number.isFinite(n1) && Number.isFinite(n2)) return `Multiplique ${n1} por ${n2} pensando em grupos iguais.`;
@@ -14144,7 +13203,6 @@ function buildFacilitatedQuestionText(q) {
     return text;
 }
 function buildQuestionKeyword(q) {
-    if (q && q.auditSupportOverrides && q.auditSupportOverrides.keyword) return String(q.auditSupportOverrides.keyword);
     const ctx = getQuestionPedagogicalContext(q);
     if (ctx.bridge === 'addition-subtraction') return 'Palavra-chave: parte que falta';
     if (ctx.bridge === 'multiplication-division') return 'Palavra-chave: operação inversa';
@@ -14191,7 +13249,6 @@ function buildPartWholeVisualHtml(total, taken, rest, labels = {}) {
 }
 function buildQuestionVisualSupportHtml(q) {
     if (!q) return '';
-    if (q.auditSupportOverrides && q.auditSupportOverrides.visualHtml) return String(q.auditSupportOverrides.visualHtml);
     const ctx = getQuestionPedagogicalContext(q);
     const { op, text, stage, n1, n2, ans } = ctx;
     const stepCards = (...items) => `<div class="ils-place-grid">${items.filter(Boolean).map(([title, value]) => `<div class="ils-place-card"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(value)}</span></div>`).join('')}</div>`;
@@ -14202,7 +13259,7 @@ function buildQuestionVisualSupportHtml(q) {
         if (ctx.isEstimation && Number.isFinite(n1) && Number.isFinite(n2)) {
             const a10 = Math.round(n1 / 10) * 10;
             const b10 = Math.round(n2 / 10) * 10;
-            return `<div class="ils-visual-title">Estimativa da soma</div><div class="ils-visual-sub">Arredonde primeiro para prever um resultado provável.</div>${stepCards([`${n1} ≈`, a10], [`${n2} ≈`, b10], ['Montagem', `${a10} + ${b10}`])}`;
+            return `<div class="ils-visual-title">Estimativa da soma</div><div class="ils-visual-sub">Arredonde primeiro para prever um resultado provável.</div>${stepCards([`${n1} ≈`, a10], [`${n2} ≈`, b10], ['Estimativa', a10 + b10])}`;
         }
         if (ctx.isDecomposition && Number.isFinite(n1) && Number.isFinite(n2) && n1 <= 999 && n2 <= 999) {
             return `<div class="ils-visual-title">Somar por ordens</div><div class="ils-visual-sub">Separe os números antes de calcular.</div>${stepCards(['1º número', `${Math.floor(n1/100)}C ${Math.floor((n1%100)/10)}D ${n1%10}U`], ['2º número', `${Math.floor(n2/100)}C ${Math.floor((n2%100)/10)}D ${n2%10}U`], ['Pergunta', 'Quais partes podem ser somadas primeiro?'])}`;
@@ -14248,9 +13305,7 @@ function buildQuestionVisualSupportHtml(q) {
         }
         if (ctx.isRepeatedAddition && Number.isFinite(n1) && Number.isFinite(n2)) {
             const html = buildGroupedDotsHtml(n1, n2);
-            const addend = Number(ctx?.repeatedAdditionInfo?.addend);
-            const times = Number(ctx?.repeatedAdditionInfo?.times);
-            if (html) return `<div class="ils-visual-title">Da soma repetida para a multiplicação</div><div class="ils-visual-sub">Veja que a mesma quantidade se repete em grupos iguais.</div>${html}<div class="ils-caption">Pergunta-chave: ${Number.isFinite(addend) && Number.isFinite(times) ? `${addend} aparece ${times} vezes.` : 'Quantas vezes a quantidade se repete?'} </div>`;
+            if (html) return `<div class="ils-visual-title">Da soma para a multiplicação</div><div class="ils-visual-sub">A mesma quantidade se repete várias vezes.</div>${html}<div class="ils-caption">Pergunta-chave: quantas vezes a quantidade se repete?</div>`;
         }
         if (ctx.isMental && Number.isFinite(n1) && Number.isFinite(n2)) {
             return `<div class="ils-visual-title">Estratégia mental</div><div class="ils-visual-sub">Quebre o fator em partes conhecidas para calcular melhor.</div>${stepCards(['Fator 1', n1], ['Fator 2', n2], ['Pergunta', 'Posso usar dobro, metade ou decomposição?'])}`;
@@ -14272,8 +13327,10 @@ function buildQuestionVisualSupportHtml(q) {
             return `<div class="ils-visual-title">Divisor faltante</div><div class="ils-visual-sub">Veja o total e o resultado para descobrir o tamanho dos grupos.</div>${stepCards(['Total', n1], ['Divisor que falta', '?'], ['Pergunta', 'Qual tamanho de grupo faz a conta funcionar?'])}`;
         }
         if (Number.isFinite(n1) && Number.isFinite(n2) && n1 <= 24 && n2 <= 6 && n2 > 0) {
+            const per = Math.floor(n1 / n2);
             const rest = n1 % n2;
-            return `<div class="ils-visual-title">Repartição</div><div class="ils-visual-sub">Organize o total em grupos do mesmo tamanho sem antecipar quantos grupos completos aparecerão.</div>${stepCards(['Total', n1], ['Tamanho de cada grupo', n2], ['Pergunta', 'Quantos grupos completos cabem?'])}<div class="ils-caption">Monte os grupos um a um e observe ${rest ? 'se sobra resto.' : 'se fecha sem sobra.'}</div>`;
+            const groups = buildGroupedDotsHtml(n2, per, 24);
+            return `<div class="ils-visual-title">Repartição</div><div class="ils-visual-sub">Veja quantos itens entram em cada grupo e se sobra resto.</div>${groups}<div class="ils-caption">Monte os grupos completos e observe o que ainda sobra.</div>`;
         }
         if (Number.isFinite(n1) && Number.isFinite(n2) && Number.isFinite(ans)) {
             return `<div class="ils-visual-title">Conferência</div><div class="ils-visual-sub">Depois de dividir, confira pela multiplicação de volta sem revelar o resultado.</div>${stepCards(['Divisor', n2], ['Pergunta', 'Quociente × divisor volta ao total?'], ['Observação', (n1 % n2) ? 'Veja também o resto.' : 'Sem resto aparente.'])}`;
@@ -14296,324 +13353,6 @@ function buildQuestionVisualSupportHtml(q) {
     }
     return '';
 }
-function buildQuestionStrategicHintText(q) {
-    if (!q) return '';
-    if (q.auditSupportOverrides && q.auditSupportOverrides.hint) return String(q.auditSupportOverrides.hint);
-    const ctx = getQuestionPedagogicalContext(q);
-    const { op, text, n1, n2 } = ctx;
-    const addMissingA = text.match(/^\?\s*\+\s*(\d+)\s*=\s*(\d+)$/);
-    const addMissingB = text.match(/^(\d+)\s*\+\s*\?\s*=\s*(\d+)$/);
-    const subMissing = text.match(/^(\d+)\s*-\s*\?\s*=\s*(\d+)$/);
-    const multMissingA = text.match(/^\?\s*[x×]\s*(\d+)\s*=\s*(\d+)$/i);
-    const multMissingB = text.match(/^(\d+)\s*[x×]\s*\?\s*=\s*(\d+)$/i);
-    const divMissingDivisor = text.match(/^(\d+)\s*÷\s*\?\s*=\s*(\d+)$/i);
-    const divMissingDividend = text.match(/^\?\s*÷\s*(\d+)\s*=\s*(\d+)$/i);
-    if (ctx.bridge === 'addition-subtraction' && Number.isFinite(n1) && Number.isFinite(n2)) {
-        return `Use a operação inversa. A soma mostra o todo e a parte conhecida; transforme a ideia em ${n1} - ${n2} para descobrir a parte que falta.`;
-    }
-    if (ctx.bridge === 'multiplication-division' && Number.isFinite(n1) && Number.isFinite(n2)) {
-        return `Use a operação inversa. Volte para a multiplicação dada e pergunte se a divisão quer quantidade de grupos ou quanto cabe em cada grupo.`;
-    }
-    if (ctx.bridge === 'power-root' && Number.isFinite(n1)) {
-        return `Use a operação inversa da potência. Pergunte qual número gera ${n1} ao quadrado ou ao cubo, conforme o símbolo da raiz.`;
-    }
-    if (op === 'addition') {
-        if (addMissingA) return `Use a operação inversa para pensar melhor. Reescreva mentalmente como ${addMissingA[2]} - ${addMissingA[1]} e descubra a parcela que falta.`;
-        if (addMissingB) return `Use a operação inversa para pensar melhor. Reescreva mentalmente como ${addMissingB[2]} - ${addMissingB[1]} e descubra a parcela que falta.`;
-        if (ctx.isEstimation) return 'Não calcule tudo de uma vez. Arredonde primeiro, preveja um valor aproximado e elimine alternativas muito pequenas ou muito grandes.';
-        if (ctx.isContext) return 'Pergunte primeiro se as quantidades aumentam ou se duas partes precisam ser juntadas. Depois some por partes.';
-        if (ctx.isDecomposition) return 'Separe o número em ordens. Some centenas com centenas, dezenas com dezenas e unidades com unidades.';
-        return 'Some por etapas. Faça primeiro a parte mais fácil da conta e depois ajuste o que faltou.';
-    }
-    if (op === 'subtraction') {
-        if (subMissing) return `Use a operação inversa para testar o que falta. Pense em ${subMissing[2]} + ? = ${subMissing[1]}.`;
-        if (ctx.isComparison) return 'Não junte os números. Descubra qual é o maior, qual é o menor e complete do menor até o maior para achar a diferença.';
-        if (ctx.isContext) return 'Marque três ideias: total, o que sai e o que sobra. Só depois faça a conta.';
-        if (ctx.isMental) return 'Faça a retirada em duas partes: vá até uma dezena fácil e depois tire o restante.';
-        return 'Comece pelo total e retire por etapas, sem trocar a subtração por soma.';
-    }
-    if (op === 'multiplication') {
-        if (multMissingA) return `Use a operação inversa. Pense em ${multMissingA[2]} ÷ ${multMissingA[1]} para descobrir o fator que falta.`;
-        if (multMissingB) return `Use a operação inversa. Pense em ${multMissingB[2]} ÷ ${multMissingB[1]} para descobrir o fator que falta.`;
-        if (ctx.isRepeatedAddition) {
-            const addend = Number(ctx?.repeatedAdditionInfo?.addend);
-            const times = Number(ctx?.repeatedAdditionInfo?.times);
-            return Number.isFinite(addend) && Number.isFinite(times)
-                ? `Não some tudo como se fosse uma adição comum. Perceba que ${addend} se repete ${times} vezes e transforme isso em grupos iguais.`
-                : 'Conte quantas vezes a mesma quantidade aparece e transforme a soma repetida em multiplicação.';
-        }
-        if (ctx.isEqualGroups || ctx.isContext) return 'Visualize grupos iguais: quantos grupos existem e quantos elementos há em cada grupo?' ;
-        if (ctx.isMental) return 'Quebre um fator em partes conhecidas ou use dobro e metade para simplificar o cálculo.';
-        return 'Leia a multiplicação como grupos iguais, não como uma conta isolada.';
-    }
-    if (op === 'division') {
-        if (divMissingDivisor) return `Use a operação inversa. Pense em ${divMissingDivisor[2]} × ? = ${divMissingDivisor[1]}.`;
-        if (divMissingDividend) return `Use a operação inversa. Pense em ${divMissingDividend[2]} × ${divMissingDividend[1]} para reconstruir o total que falta.`;
-        if (ctx.isRemainder) return 'Primeiro veja quantos grupos completos cabem. Depois observe o que sobra sem formar outro grupo inteiro.';
-        if (ctx.isEstimation) return 'Procure múltiplos próximos do divisor para prever o quociente antes do cálculo exato.';
-        return 'Pergunte se a divisão quer quantidade de grupos ou tamanho de cada grupo. Essa decisão vem antes da conta.';
-    }
-    if (op === 'potenciacao') {
-        if (ctx.isMissingTerm) return 'Reescreva a potência como multiplicação repetida e descubra qual valor está faltando nessa repetição.';
-        return 'Troque a potência por multiplicação repetida antes de calcular. A base se repete o número de vezes indicado pelo expoente.';
-    }
-    if (op === 'radiciacao') {
-        if (ctx.isEstimation) return 'Localize o número entre quadrados ou cubos conhecidos para descobrir entre quais valores a raiz está.';
-        return 'Use a operação inversa da potência. Pergunte qual número, ao quadrado ou ao cubo, gera o valor dado.';
-    }
-    return 'Leia o que a questão pede, escolha a estratégia e só depois calcule.';
-}
-
-
-function buildAuditStepCards(...items) {
-    return `<div class="ils-place-grid">${items.filter(Boolean).map(([title, value]) => `<div class="ils-place-card"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(value)}</span></div>`).join('')}</div>`;
-}
-function stripAuditHtml(html) {
-    return String(html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-}
-function containsWholeNumberText(text, value) {
-    const safe = String(text || '');
-    const token = String(value);
-    const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return new RegExp(`(^|[^0-9])${escaped}([^0-9]|$)`).test(safe);
-}
-function parseQuestionExpectedAnswer(q) {
-    const raw = String(q?.question || '').replace(/\s*=\s*\?\s*$/, '').trim();
-    if (!raw) return { resolved: false, answer: null, reason: 'empty-question' };
-    const txt = raw.replace(/−/g, '-').replace(/×/g, 'x').replace(/\s+/g, ' ').trim();
-    let m = txt.match(/^Se\s+(\d+)\s*\+\s*(\d+)\s*=\s*(\d+),\s*ent[aã]o\s*(\d+)\s*-\s*(\d+)$/i);
-    if (m) return { resolved: true, answer: Number(m[4]) - Number(m[5]), reason: 'bridge-add-sub' };
-    m = txt.match(/^Se\s+(\d+)\s*[x]\s*(\d+)\s*=\s*(\d+),\s*ent[aã]o\s*(\d+)\s*÷\s*(\d+)$/i);
-    if (m) return { resolved: true, answer: Number(m[4]) / Number(m[5]), reason: 'bridge-mult-div' };
-    m = txt.match(/^\?\s*\+\s*(\d+)\s*=\s*(\d+)$/);
-    if (m) return { resolved: true, answer: Number(m[2]) - Number(m[1]), reason: 'missing-add-left' };
-    m = txt.match(/^(\d+)\s*\+\s*\?\s*=\s*(\d+)$/);
-    if (m) return { resolved: true, answer: Number(m[2]) - Number(m[1]), reason: 'missing-add-right' };
-    m = txt.match(/^\?\s*-\s*(\d+)\s*=\s*(\d+)$/);
-    if (m) return { resolved: true, answer: Number(m[1]) + Number(m[2]), reason: 'missing-minuend' };
-    m = txt.match(/^(\d+)\s*-\s*\?\s*=\s*(\d+)$/);
-    if (m) return { resolved: true, answer: Number(m[1]) - Number(m[2]), reason: 'missing-subtrahend' };
-    m = txt.match(/^\?\s*[x]\s*(\d+)\s*=\s*(\d+)$/i);
-    if (m && Number(m[2]) % Number(m[1]) === 0) return { resolved: true, answer: Number(m[2]) / Number(m[1]), reason: 'missing-factor-left' };
-    m = txt.match(/^(\d+)\s*[x]\s*\?\s*=\s*(\d+)$/i);
-    if (m && Number(m[2]) % Number(m[1]) === 0) return { resolved: true, answer: Number(m[2]) / Number(m[1]), reason: 'missing-factor-right' };
-    m = txt.match(/^\?\s*÷\s*(\d+)\s*=\s*(\d+)$/i);
-    if (m) return { resolved: true, answer: Number(m[1]) * Number(m[2]), reason: 'missing-dividend' };
-    m = txt.match(/^(\d+)\s*÷\s*\?\s*=\s*(\d+)$/i);
-    if (m && Number(m[2]) !== 0 && Number(m[1]) % Number(m[2]) === 0) return { resolved: true, answer: Number(m[1]) / Number(m[2]), reason: 'missing-divisor' };
-    m = txt.match(/^(\d+)\s*\+\s*(\d+)\s*\+\s*(\d+)$/);
-    if (m) return { resolved: true, answer: Number(m[1]) + Number(m[2]) + Number(m[3]), reason: 'add-three' };
-    m = txt.match(/^(\d+)\s*\+\s*(\d+)\s*\+\s*(\d+)\s*\+\s*(\d+)$/);
-    if (m) return { resolved: true, answer: Number(m[1]) + Number(m[2]) + Number(m[3]) + Number(m[4]), reason: 'add-four' };
-    m = txt.match(/^(\d+)\s*\+\s*(\d+)$/);
-    if (m) return { resolved: true, answer: Number(m[1]) + Number(m[2]), reason: 'add-simple' };
-    m = txt.match(/^(\d+)\s*-\s*(\d+)$/);
-    if (m) return { resolved: true, answer: Number(m[1]) - Number(m[2]), reason: 'sub-simple' };
-    m = txt.match(/^(\d+)\s*[x]\s*(\d+)$/i);
-    if (m) return { resolved: true, answer: Number(m[1]) * Number(m[2]), reason: 'mult-simple' };
-    m = txt.match(/^(\d+)\s*÷\s*(\d+)\s*\(resto\)$/i);
-    if (m) return { resolved: true, answer: Number(m[1]) % Number(m[2]), reason: 'div-remainder-marked' };
-    m = txt.match(/^(\d+)\s*÷\s*(\d+)$/i);
-    if (m) return { resolved: true, answer: Number(m[1]) / Number(m[2]), reason: 'div-simple' };
-    m = txt.match(/^√(\d+)\s*\(aproximada\)$/i);
-    if (m) return { resolved: true, answer: Math.floor(Math.sqrt(Number(m[1]))), reason: 'root-approx-floor' };
-    m = txt.match(/^√(\d+)$/i);
-    if (m) return { resolved: true, answer: Math.sqrt(Number(m[1])), reason: 'root-square' };
-    m = txt.match(/^∛(\d+)$/i);
-    if (m) return { resolved: true, answer: Math.cbrt(Number(m[1])), reason: 'root-cube' };
-    m = txt.match(/^(\d+)(²|³)$/);
-    if (m) return { resolved: true, answer: Number(m[1]) ** ({'²':2,'³':3}[m[2]] || 2), reason: 'power-short' };
-    m = txt.match(/^(\d+) é quadrado perfeito de qual número$/i);
-    if (m) return { resolved: true, answer: Math.sqrt(Number(m[1])), reason: 'root-perfect-square' };
-    m = txt.match(/^Qual número multiplicado por ele mesmo dá (\d+)$/i);
-    if (m) return { resolved: true, answer: Math.sqrt(Number(m[1])), reason: 'root-self-product' };
-    m = txt.match(/^A área de um quadrado é (\d+)\. Qual é a medida do lado$/i);
-    if (m) return { resolved: true, answer: Math.sqrt(Number(m[1])), reason: 'root-square-area' };
-    m = txt.match(/^A raiz de (\d+) fica entre \d+ e \d+\. Qual é o valor exato$/i);
-    if (m) return { resolved: true, answer: Math.sqrt(Number(m[1])), reason: 'root-exact-between' };
-    m = txt.match(/^√(\d+) está entre \d+ e \d+\. Qual é a raiz inteira mais próxima por baixo$/i);
-    if (m) return { resolved: true, answer: Math.floor(Math.sqrt(Number(m[1]))), reason: 'root-floor-between' };
-    m = txt.match(/^(\d+) grupos de (\d+)$/i);
-    if (m) return { resolved: true, answer: Number(m[1]) * Number(m[2]), reason: 'equal-groups' };
-    m = txt.match(/^(\d+) caixas com (\d+) itens em cada uma\. Quantos itens há ao todo$/i);
-    if (m) return { resolved: true, answer: Number(m[1]) * Number(m[2]), reason: 'mult-context-boxes' };
-    m = txt.match(/^(\d+) itens foram organizados em (\d+) grupos iguais\. Quantos itens ficaram em cada grupo$/i);
-    if (m) return { resolved: true, answer: Number(m[1]) / Number(m[2]), reason: 'div-context-groups' };
-    m = txt.match(/^Em (\d+) ÷ (\d+), quantos grupos completos cabem antes de sobrar$/i);
-    if (m) return { resolved: true, answer: Math.floor(Number(m[1]) / Number(m[2])), reason: 'div-complete-groups' };
-    m = txt.match(/^(\d+) ÷ (\d+)\. Qual é o resto$/i);
-    if (m) return { resolved: true, answer: Number(m[1]) % Number(m[2]), reason: 'div-remainder-text' };
-    m = txt.match(/^Para somar (\d+) \+ (\d+), primeiro faça \1 \+ (\d+)\. Depois some quanto$/i);
-    if (m) return { resolved: true, answer: Number(m[2]) - Number(m[3]), reason: 'add-decomposition-remaining' };
-    m = txt.match(/^Para calcular (\d+) - (\d+), primeiro faça \1 - (\d+)\. Depois tire quanto$/i);
-    if (m) return { resolved: true, answer: Number(m[2]) - Number(m[3]), reason: 'sub-decomposition-remaining' };
-    m = txt.match(/^(\d+) x (\d+) = (\d+) x \2 \+ __\. Qual valor falta$/i);
-    if (m) return { resolved: true, answer: (Number(m[1]) - Number(m[3])) * Number(m[2]), reason: 'mult-distributive-missing' };
-    m = txt.match(/^(Dobro|Triplo|Qu[aá]druplo) de (\d+)$/i);
-    if (m) {
-        const factor = /dobro/i.test(m[1]) ? 2 : (/triplo/i.test(m[1]) ? 3 : 4);
-        return { resolved: true, answer: factor * Number(m[2]), reason: 'mult-word-factor' };
-    }
-    m = txt.match(/^(\d+), __$/);
-    if (m && Number.isFinite(Number(q?.num1))) return { resolved: true, answer: Number(q.answer), reason: 'skip-count-given' };
-    return { resolved: false, answer: null, reason: 'pattern-not-covered' };
-}
-function buildStrictSupportOverrides(q) {
-    const ctx = getQuestionPedagogicalContext(q);
-    const op = ctx.op;
-    const reading = (() => {
-        if (ctx.bridge === 'addition-subtraction') return 'A soma mostra o todo e uma das partes. A pergunta agora quer descobrir a outra parte usando subtração.';
-        if (ctx.bridge === 'multiplication-division') return 'A multiplicação mostra a relação entre total, grupos e quantidade em cada grupo. Use isso para entender a divisão pedida.';
-        if (ctx.bridge === 'power-root') return 'A potência aparece como pista. A pergunta final quer desfazer essa potência usando raiz.';
-        if (ctx.isRepeatedAddition) {
-            const addend = Number(ctx?.repeatedAdditionInfo?.addend);
-            const times = Number(ctx?.repeatedAdditionInfo?.times);
-            return Number.isFinite(addend) && Number.isFinite(times)
-                ? `A mesma quantidade se repete. O ${addend} aparece ${times} vezes. Leia isso como grupos iguais, não como adição comum.`
-                : 'A mesma quantidade se repete várias vezes. Conte quantos grupos aparecem e quanto há em cada grupo.';
-        }
-        if (op === 'addition' && ctx.isMissingTerm) return 'Uma parcela já apareceu e a outra está escondida. Use o total para descobrir a parte que falta.';
-        if (op === 'addition' && ctx.isEstimation) return 'A questão não pede conta exata. Primeiro aproxime os números e depois escolha o valor mais próximo.';
-        if (op === 'addition' && ctx.isContext) return 'Descubra quais quantidades aumentam ou se juntam. Só depois monte a soma.';
-        if (op === 'subtraction' && ctx.isComparison) return 'A pergunta quer a diferença entre dois valores. Compare o maior com o menor, sem juntar as quantidades.';
-        if (op === 'subtraction' && ctx.isMissingTerm) return 'A conta está incompleta. Pense no número que precisa ser tirado ou completado para a igualdade ficar correta.';
-        if (op === 'subtraction' && ctx.isContext) return 'Identifique o total, o que sai e o que sobra. A ordem dessas três ideias vem antes da conta.';
-        if (op === 'multiplication' && ctx.isEqualGroups) return 'Leia a situação como grupos iguais: quantos grupos existem e quantos elementos há em cada grupo.';
-        if (op === 'division' && ctx.isRemainder) return 'Monte primeiro os grupos completos. Depois observe o que sobra sem formar um grupo inteiro.';
-        if (op === 'division' && (ctx.isMissingDividend || ctx.isMissingDivisor)) return 'A divisão está incompleta. Use a relação com a multiplicação para reconstruir o valor que falta.';
-        if (op === 'potenciacao') return 'Leia a potência como repetição da mesma base. O expoente indica quantas vezes a base aparece.';
-        if (op === 'radiciacao' && ctx.isEstimation) return 'Localize o número entre quadrados ou cubos conhecidos antes de decidir a raiz mais próxima.';
-        if (op === 'radiciacao') return 'A raiz pergunta qual número gera o valor dado quando é multiplicado por ele mesmo.';
-        return buildFacilitatedQuestionText({ ...q, auditSupportOverrides: null });
-    })();
-    const keyword = (() => {
-        if (ctx.isRepeatedAddition) return 'Palavra-chave: soma repetida';
-        if (ctx.bridge === 'addition-subtraction') return 'Palavra-chave: parte que falta';
-        if (ctx.bridge === 'multiplication-division') return 'Palavra-chave: operação inversa';
-        if (ctx.bridge === 'power-root') return 'Palavra-chave: inversa da potência';
-        if (ctx.isMissingTerm) return 'Palavra-chave: termo faltante';
-        if (ctx.isMissingFactor) return 'Palavra-chave: fator faltante';
-        if (ctx.isMissingDividend) return 'Palavra-chave: dividendo faltante';
-        if (ctx.isMissingDivisor) return 'Palavra-chave: divisor faltante';
-        if (ctx.isComparison) return 'Palavra-chave: diferença';
-        if (ctx.isRemainder) return 'Palavra-chave: resto';
-        if (ctx.isEstimation) return 'Palavra-chave: estimativa';
-        return buildQuestionKeyword({ ...q, auditSupportOverrides: null });
-    })();
-    const visualHtml = (() => {
-        if (ctx.isRepeatedAddition) {
-            const groups = Number(ctx?.repeatedAdditionInfo?.times);
-            const size = Number(ctx?.repeatedAdditionInfo?.addend);
-            const html = buildGroupedDotsHtml(groups, size);
-            if (html) return `<div class="ils-visual-title">Mesma quantidade repetida</div><div class="ils-visual-sub">A soma pode ser lida como grupos iguais.</div>${html}<div class="ils-caption">Conte grupos e elementos por grupo antes de pensar no total.</div>`;
-        }
-        if (ctx.bridge === 'addition-subtraction' && Number.isFinite(ctx.n1) && Number.isFinite(ctx.n2)) return buildPartWholeVisualHtml(ctx.n1, ctx.n2, '?', { totalLabel: 'Todo', takenLabel: 'Parte conhecida', restLabel: 'Parte que falta' });
-        if (ctx.bridge === 'multiplication-division' && Number.isFinite(ctx.n1) && Number.isFinite(ctx.n2)) return buildPartWholeVisualHtml(ctx.n1, ctx.n2, '?', { totalLabel: 'Total', takenLabel: 'Em cada grupo', restLabel: 'Quantidade de grupos' });
-        if (ctx.isMissingTerm && Number.isFinite(ctx.n1)) return `<div class="ils-visual-title">Estrutura da igualdade</div><div class="ils-visual-sub">Uma parte aparece e a outra precisa ser descoberta.</div>${buildAuditStepCards(['Parte conhecida', ctx.n1], ['Parte faltante', '?'], ['Objetivo', 'Fazer a igualdade fechar'])}`;
-        if (ctx.isComparison && Number.isFinite(ctx.n1) && Number.isFinite(ctx.n2)) return `<div class="ils-visual-title">Comparar valores</div><div class="ils-visual-sub">Veja o maior, o menor e a distância entre eles.</div>${buildAuditStepCards(['Maior valor', Math.max(ctx.n1, ctx.n2)], ['Menor valor', Math.min(ctx.n1, ctx.n2)], ['Pergunta', 'Qual é a diferença?'])}`;
-        if (ctx.isRemainder && Number.isFinite(ctx.n1) && Number.isFinite(ctx.n2)) return `<div class="ils-visual-title">Grupos completos e sobra</div><div class="ils-visual-sub">Monte grupos do mesmo tamanho até não dar para formar outro grupo inteiro.</div>${buildAuditStepCards(['Total', ctx.n1], ['Tamanho do grupo', ctx.n2], ['Pergunta', 'O que sobra no final?'])}`;
-        if (op === 'potenciacao' && Number.isFinite(ctx.n1) && Number.isFinite(ctx.n2)) return `<div class="ils-visual-title">Base repetida</div><div class="ils-visual-sub">Leia a potência como multiplicação repetida.</div><div class="ils-expression">${Array.from({ length: Math.max(1, Math.min(5, ctx.n2 || 2)) }, () => String(ctx.n1)).join(' × ')}</div>`;
-        if (op === 'radiciacao' && Number.isFinite(ctx.n1)) return `<div class="ils-visual-title">Pergunta da raiz</div><div class="ils-visual-sub">Não procure o resultado final de uma vez. Procure o número que gera o valor dado.</div><div class="ils-expression">? × ? = ${escapeHtml(ctx.n1)}</div>`;
-        return buildQuestionVisualSupportHtml({ ...q, auditSupportOverrides: null });
-    })();
-    const hint = (() => {
-        if (ctx.isRepeatedAddition) return 'Transforme a soma repetida em multiplicação: quantidade de grupos × quantidade em cada grupo.';
-        if (ctx.bridge === 'addition-subtraction') return 'Use a operação inversa. A soma mostra o todo; a subtração serve para descobrir a parte que falta.';
-        if (ctx.bridge === 'multiplication-division') return 'Use a operação inversa. Volte para a multiplicação e decida se a divisão quer grupos ou quantidade em cada grupo.';
-        if (ctx.bridge === 'power-root') return 'Use a raiz para desfazer a potência. Pergunte qual número gera o valor dado.';
-        if (ctx.isMissingTerm && op === 'addition' && Number.isFinite(ctx.n1) && Number.isFinite(ctx.n2)) return 'Use a operação inversa: pegue o total e tire a parcela conhecida para descobrir a que falta.';
-        if (ctx.isMissingTerm && op === 'subtraction') return 'Teste a conta pela inversa: transforme a subtração incompleta em uma adição que confirme o valor faltante.';
-        if (ctx.isMissingFactor) return 'Use a operação inversa: transforme a multiplicação incompleta em divisão para achar o fator que falta.';
-        if (ctx.isMissingDividend || ctx.isMissingDivisor) return 'Use a relação divisão ↔ multiplicação para reconstruir o valor escondido sem adivinhar.';
-        if (ctx.isComparison) return 'Não some. Complete do menor até o maior ou subtraia o menor do maior para achar a diferença.';
-        if (ctx.isRemainder) return 'Conte apenas grupos completos. O resto é o que não consegue formar outro grupo inteiro.';
-        if (ctx.isEstimation) return 'Arredonde primeiro, estime e elimine alternativas incompatíveis antes de calcular com mais detalhe.';
-        return buildQuestionStrategicHintText({ ...q, auditSupportOverrides: null });
-    })();
-    return { reading, keyword, visualHtml, hint };
-}
-function auditQuestionSupportQuality(q) {
-    const keyword = buildQuestionKeyword({ ...q, auditSupportOverrides: null });
-    const reading = buildFacilitatedQuestionText({ ...q, auditSupportOverrides: null });
-    const visualHtml = buildQuestionVisualSupportHtml({ ...q, auditSupportOverrides: null });
-    const hint = buildQuestionStrategicHintText({ ...q, auditSupportOverrides: null });
-    const plainVisual = stripAuditHtml(visualHtml);
-    const bundle = `${keyword} ${reading} ${plainVisual} ${hint}`.toLowerCase();
-    const ctx = getQuestionPedagogicalContext(q);
-    const issues = [];
-    if (!String(reading || '').trim()) issues.push('reading-empty');
-    if (!String(hint || '').trim()) issues.push('hint-empty');
-    if (!String(visualHtml || '').trim()) issues.push('visual-empty');
-    if (/leitura útil/i.test(plainVisual)) issues.push('visual-generic-fallback');
-    if (/leia o problema/i.test(reading) || /leia o contexto/i.test(reading)) issues.push('reading-too-generic');
-    if (/leia o que a questão pede/i.test(hint)) issues.push('hint-too-generic');
-    if (ctx.isRepeatedAddition && /palavra-chave:\s*juntar/i.test(keyword)) issues.push('keyword-wrong-repeated-addition');
-    if (ctx.isRepeatedAddition && !/(soma repetida|grupos iguais|multiplica)/i.test(bundle)) issues.push('support-misses-repeated-addition');
-    if (ctx.op === 'subtraction' && !ctx.isMissingTerm && /(palavra-chave:\s*juntar|\bjunte\b|\bsome\b)/i.test(bundle)) issues.push('support-uses-addition-language-in-subtraction');
-    if (ctx.op === 'division' && /(palavra-chave:\s*juntar|\bjunte\b|\bsome\b)/i.test(bundle)) issues.push('support-uses-addition-language-in-division');
-    if (ctx.op === 'multiplication' && ctx.isEqualGroups && !/(grupo|repete|multiplica)/i.test(bundle)) issues.push('support-misses-groups-language');
-    return { keyword, reading, visualHtml, hint, issues };
-}
-function auditAndFixQuestionBeforeDisplay(question, ctx = {}) {
-    try {
-        if (!question || typeof question !== 'object') return question;
-        const q = question;
-        const issues = [];
-        const fixes = [];
-        const originalMetadata = String(q.operacao || q.semanticOperation || q.operationMetadata || '');
-        const semantic = inferSemanticOperationFromQuestionText(String(q.question || '').replace(/\s*=\s*\?\s*$/, ''), originalMetadata) || originalMetadata;
-        if (semantic && semantic !== originalMetadata) {
-            q.operacao = semantic;
-            q.semanticOperation = semantic;
-            fixes.push(`semantic-operation:${originalMetadata}->${semantic}`);
-        } else if (semantic) {
-            q.operacao = semantic;
-            q.semanticOperation = semantic;
-        }
-        const expected = parseQuestionExpectedAnswer(q);
-        if (expected.resolved && Number.isFinite(expected.answer) && Number(q.answer) !== Number(expected.answer)) {
-            q.answer = Number(expected.answer);
-            fixes.push(`answer:${expected.reason}`);
-        } else if (!expected.resolved) {
-            issues.push(`unparsed:${expected.reason}`);
-        }
-        const safeOp = String(q.operacao || q.semanticOperation || q.operationMetadata || gameState.currentOperation || '');
-        if (!Array.isArray(q.options) || new Set(q.options.map((v) => String(v))).size < 4 || !q.options.some((v) => Number(v) === Number(q.answer))) {
-            q.options = buildQuestionOptions(safeOp, Number(q.answer), {
-                num1: q.num1,
-                num2: q.num2,
-                stageLabel: q.stageLabel || q.masteryStageLabel || '',
-                questionString: String(q.question || '').replace(/\s*=\s*\?\s*$/, ''),
-                voiceQuestion: q.voiceQuestion || q.question || '',
-                level: gameState.currentLevel || ''
-            });
-            q.voiceOptions = q.options;
-            fixes.push('options-rebuilt');
-        }
-        const supportAudit = auditQuestionSupportQuality(q);
-        if (supportAudit.issues.length) {
-            q.auditSupportOverrides = buildStrictSupportOverrides(q);
-            fixes.push(`support-overrides:${supportAudit.issues.join('|')}`);
-        }
-        const leakText = `${String(q.auditSupportOverrides?.reading || supportAudit.reading || '')} ${stripAuditHtml(String(q.auditSupportOverrides?.visualHtml || supportAudit.visualHtml || ''))} ${String(q.auditSupportOverrides?.hint || supportAudit.hint || '')}`;
-        if (Number.isFinite(Number(q.answer)) && containsWholeNumberText(leakText, Number(q.answer)) && !/\?|falta|parte|grupo|quadrado|cubo|total/i.test(leakText)) {
-            q.auditSupportOverrides = buildStrictSupportOverrides(q);
-            fixes.push('support-rebuilt-anti-leak');
-        }
-        q.deliveryAudit = {
-            source: String(ctx.source || 'runtime'),
-            semanticOperation: String(q.operacao || q.semanticOperation || ''),
-            expectedAnswerReason: expected.reason,
-            issues,
-            fixes,
-            checkedAt: Date.now()
-        };
-        return q;
-    } catch (_) {
-        return question;
-    }
-}
-
 function getSupportRouteBadge(q) {
     const trail = gameState.operationTrail || {};
     const mode = normalizeAdaptiveSupportMode(q?.supportMode || trail.supportMode || 'normal');
@@ -14639,25 +13378,6 @@ function setInclusiveLearningExpanded(expanded) {
         body.hidden = !isExpanded;
         body.setAttribute('aria-hidden', !isExpanded ? 'true' : 'false');
     }
-    if (!isExpanded) {
-        ['reading', 'visual', 'hint'].forEach((section) => setInclusiveLearningSectionExpanded(panel, section, false));
-    }
-}
-function setInclusiveLearningSectionExpanded(panel, section, expanded) {
-    const root = panel || document.getElementById('inclusive-learning-panel');
-    if (!root) return;
-    const toggle = root.querySelector(`[data-inclusive-toggle="${section}"]`);
-    const body = root.querySelector(`[data-inclusive-body="${section}"]`);
-    const isExpanded = !!expanded;
-    if (toggle) {
-        toggle.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
-        toggle.classList.toggle('is-open', isExpanded);
-    }
-    if (body) {
-        body.classList.toggle('hidden', !isExpanded);
-        body.hidden = !isExpanded;
-        body.setAttribute('aria-hidden', !isExpanded ? 'true' : 'false');
-    }
 }
 function ensureInclusiveLearningPanel() {
     let panel = document.getElementById('inclusive-learning-panel');
@@ -14671,35 +13391,25 @@ function ensureInclusiveLearningPanel() {
     panel.dataset.expanded = 'false';
     panel.innerHTML = `
       <button type="button" class="inclusive-learning-toggle" id="inclusive-learning-toggle" aria-expanded="false">
-        Leitura facilitada, pista visual e dica
+        Leitura facilitada e pista visual
       </button>
       <div class="info-card inclusive-learning-body hidden" id="inclusive-learning-body" hidden aria-hidden="true">
         <div class="inclusive-learning-header">
-          <strong>🧩 Apoios da questão</strong>
-          <button type="button" class="inclusive-learning-close" id="inclusive-learning-close" aria-label="Fechar apoios da questão">×</button>
+          <strong>🧩 Leitura facilitada e pista visual</strong>
+          <button type="button" class="inclusive-learning-close" id="inclusive-learning-close" aria-label="Fechar leitura facilitada e pista visual">×</button>
         </div>
         <div class="inclusive-learning-head">
           <span class="inclusive-learning-badge" id="inclusive-route-badge">Leitura e representação da questão</span>
           <span class="inclusive-learning-keyword" id="inclusive-keyword-badge">Palavra-chave</span>
         </div>
-        <div class="inclusive-learning-sections">
-          <div class="inclusive-learning-section" data-section="reading">
-            <button type="button" class="inclusive-section-toggle" data-inclusive-toggle="reading" aria-expanded="false">Leitura facilitada</button>
-            <div class="inclusive-section-body hidden" data-inclusive-body="reading" hidden aria-hidden="true">
-              <p id="inclusive-reading-text"></p>
-            </div>
+        <div class="inclusive-learning-grid">
+          <div class="inclusive-learning-card">
+            <span class="inclusive-learning-label">Leitura facilitada</span>
+            <p id="inclusive-reading-text"></p>
           </div>
-          <div class="inclusive-learning-section" data-section="visual">
-            <button type="button" class="inclusive-section-toggle" data-inclusive-toggle="visual" aria-expanded="false">Pista visual</button>
-            <div class="inclusive-section-body hidden" data-inclusive-body="visual" hidden aria-hidden="true">
-              <div id="inclusive-visual-html"></div>
-            </div>
-          </div>
-          <div class="inclusive-learning-section" data-section="hint">
-            <button type="button" class="inclusive-section-toggle" data-inclusive-toggle="hint" aria-expanded="false">Dica estratégica</button>
-            <div class="inclusive-section-body hidden" data-inclusive-body="hint" hidden aria-hidden="true">
-              <p id="inclusive-strategic-hint"></p>
-            </div>
+          <div class="inclusive-learning-card">
+            <span class="inclusive-learning-label">Pista visual</span>
+            <div id="inclusive-visual-html"></div>
           </div>
         </div>
       </div>`;
@@ -14716,15 +13426,6 @@ function ensureInclusiveLearningPanel() {
         ev.stopPropagation();
         setInclusiveLearningExpanded(false);
     });
-    panel.querySelectorAll('[data-inclusive-toggle]').forEach((btn) => {
-        btn.addEventListener('click', (ev) => {
-            ev.preventDefault();
-            ev.stopPropagation();
-            const section = String(btn.getAttribute('data-inclusive-toggle') || '').trim();
-            const isOpen = btn.getAttribute('aria-expanded') === 'true';
-            setInclusiveLearningSectionExpanded(panel, section, !isOpen);
-        });
-    });
     return panel;
 }
 function renderInclusiveLearningPanel(q) {
@@ -14739,7 +13440,6 @@ function renderInclusiveLearningPanel(q) {
     const keywordEl = panel.querySelector('#inclusive-keyword-badge');
     const readingEl = panel.querySelector('#inclusive-reading-text');
     const visualEl = panel.querySelector('#inclusive-visual-html');
-    const hintEl = panel.querySelector('#inclusive-strategic-hint');
     if (routeEl) routeEl.textContent = getSupportRouteBadge(q);
     if (keywordEl) keywordEl.textContent = buildQuestionKeyword(q);
     if (readingEl) readingEl.textContent = buildFacilitatedQuestionText(q);
@@ -14747,11 +13447,9 @@ function renderInclusiveLearningPanel(q) {
         const html = buildQuestionVisualSupportHtml(q);
         visualEl.innerHTML = html || '<div class="ils-visual-sub">Nomeie o que a questão pede, destaque a relação entre os números e só depois calcule.</div>';
     }
-    if (hintEl) hintEl.textContent = buildQuestionStrategicHintText(q);
     panel.classList.remove('hidden');
     panel.hidden = false;
     setInclusiveLearningExpanded(false);
-    ['reading', 'visual', 'hint'].forEach((section) => setInclusiveLearningSectionExpanded(panel, section, false));
 }
 function ensureAlternativeResponsePanel() {
     let panel = document.getElementById('alternative-response-panel');
@@ -14896,11 +13594,9 @@ function nextQuestion() {
     gameState.questionNumber++;
     
     // 1. Gerar nova questão 
-    const newQ = auditAndFixQuestionBeforeDisplay(generateQuestion(gameState.currentOperation), { source: 'next-question' });
+    const newQ = generateQuestion(gameState.currentOperation);
     gameState.currentQuestion = newQ;
     gameState.attemptsThisQuestion = 0;
-    gameState.questionStartedAt = Date.now();
-    gameState.questionAttemptStartedAt = gameState.questionStartedAt;
 // 2. Atualizar UI
     questionCounter.textContent = buildQuestionCounterLabel();
     questionText.textContent = newQ.question;
@@ -15040,9 +13736,6 @@ function handleAnswer(selectedAnswer, selectedButton) {
         handleDiagnosticAnswer(selectedAnswer, selectedButton);
         return;
     }
-    const attemptNo = Math.max(1, Number(gameState.attemptsThisQuestion || 0) + 1);
-    const responseStartedAt = Number(gameState.questionAttemptStartedAt || gameState.questionStartedAt || Date.now());
-    const responseMs = Math.max(0, Date.now() - responseStartedAt);
     // Prioridade 2: tempo por questão (conta apenas na 1ª tentativa)
     try {
         if (Number(gameState.attemptsThisQuestion || 0) === 0) {
@@ -15107,14 +13800,6 @@ function handleAnswer(selectedAnswer, selectedButton) {
         playerScoreElement.textContent = `${gameState.score} Pontos`;
         recordPriority3RoundOutcome(q, true, selectedAnswer);
         recordOperationTrailQuestionResolution(q, true);
-        try {
-            queueCloudAttemptForCurrentProfile(q, selectedAnswer, true, {
-                attemptNo,
-                questionNumber: gameState.questionNumber,
-                responseStartedAt,
-                responseMs
-            });
-        } catch (_) {}
         // Prioridade 1: persiste andamento após acerto
         try { savePetSessionSoon(); } catch (_) {}
         // Se acertou, repõe o tempo total para a próxima questão
@@ -15145,16 +13830,7 @@ function handleAnswer(selectedAnswer, selectedButton) {
         return;
     }
     // ERRO
-    try {
-        queueCloudAttemptForCurrentProfile(q, selectedAnswer, false, {
-            attemptNo,
-            questionNumber: gameState.questionNumber,
-            responseStartedAt,
-            responseMs
-        });
-    } catch (_) {}
     gameState.attemptsThisQuestion++;
-    gameState.questionAttemptStartedAt = Date.now();
     // Salva erro (mesmo que depois acerte, isso ajuda a mapear as dificuldades)
     gameState.erros++;
     atualizarXP(-2);
@@ -16302,12 +14978,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (_) {}
     // 1. Inicia direto no app e deixa o acesso/cadastro de perfil apenas no botão Perfil
     await bootstrapProfileAccess();
-    try { await enforceCloudIsolationForProfile(gameState.activeProfileId, { silent: true }); } catch (_) {}
     // 2. Carrega o estado do contexto atual (visitante por padrão ou perfil selecionado)
     loadProfileBoundState();
-    try { await maybeOpenCloudRecoveryModal(); } catch (_) {}
-    try { initTeacherAuthHooks(); } catch (_) {}
-    try { await maybeOpenTeacherRecoveryModal(); } catch (_) {}
     try { await runCloudBootstrapForCurrentProfile(); } catch (_) {}
     loadTeacherPrefs();
     initPWA();
