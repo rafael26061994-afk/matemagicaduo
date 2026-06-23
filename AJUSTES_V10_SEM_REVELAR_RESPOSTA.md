@@ -1,3 +1,0 @@
-- resposta correta não é mais exibida em feedback, diagnóstico, treino de erros, pista visual ou leitura facilitada
-- leitura facilitada e pista visual agora abrem recolhidas, no padrão de Compreender a questão
-- botão de apoio foi renomeado para Abrir apoios e não revela resposta
